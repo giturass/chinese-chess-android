@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -136,7 +137,7 @@ private fun GameInfoPanel(
     modifier: Modifier = Modifier,
     isAiThinking: Boolean = false,
     metaText: String? = null,
-    actions: @Composable Column.() -> Unit
+    actions: @Composable ColumnScope.() -> Unit
 ) {
     var historyExpanded by rememberSaveable { mutableStateOf(false) }
     val accent = state.accentColor()

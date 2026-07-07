@@ -198,7 +198,7 @@ class GameViewModel : ViewModel() {
         _legalMoves.value = emptyList()
         _statusMessage.value = if (requester != null) {
             val sideName = if (requester == Side.RED) "红方" else "黑方"
-            "$sideName提出求和，双方同意和棋"
+            "${sideName}提出求和，双方同意和棋"
         } else {
             "双方同意和棋"
         }
