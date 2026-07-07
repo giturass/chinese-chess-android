@@ -1,5 +1,6 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,6 +84,7 @@ fun EndgameScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .background(Color(0xFFFFF7E8))
                     .padding(16.dp)
             ) {
                 items(puzzles) { puzzle ->
@@ -135,9 +138,19 @@ private fun GameContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(Color(0xFFFFF7E8))
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            GameStatusBanner(
+                state = state,
+                statusMessage = statusMessage,
+                metaText = "难度 ${puzzle.difficulty}",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            )
+
             // Puzzle info
             Card(
                 modifier = Modifier
@@ -145,12 +158,6 @@ private fun GameContent(
                     .padding(8.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = statusMessage,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = puzzle.description,
                         fontSize = 14.sp,

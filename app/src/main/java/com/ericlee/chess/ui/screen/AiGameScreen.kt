@@ -1,6 +1,8 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -9,10 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
+import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -56,6 +60,7 @@ fun AiGameScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(Color(0xFFFFF7E8))
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -66,32 +71,15 @@ fun AiGameScreen(
                     gameStarted = true
                 }
             } else {
-                // Status bar
-                Card(
+                GameStatusBanner(
+                    state = state,
+                    statusMessage = statusMessage,
+                    isAiThinking = isAiThinking,
+                    metaText = "难度 ${difficulty}",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = statusMessage,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (isAiThinking) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    }
-                }
+                )
 
                 // Chess board
                 ChessBoard(
@@ -121,7 +109,7 @@ fun AiGameScreen(
 
                     OutlinedButton(
                         onClick = { viewModel.resign() },
-                        enabled = state.status == com.ericlee.chess.model.GameStatus.PLAYING && !isAiThinking
+                        enabled = state.status == GameStatus.PLAYING && !isAiThinking
                     ) {
                         Text("认输")
                     }
@@ -131,47 +119,91 @@ fun AiGameScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DifficultySelector(
     difficulty: Int,
     onSelect: (Int) -> Unit
 ) {
+    val levels = listOf(
+        DifficultyLevel(1, "入门", "快速应手，适合熟悉规则", "★"),
+        DifficultyLevel(2, "进阶", "会主动兑子与防守", "★★"),
+        DifficultyLevel(3, "劲敌", "搜索更深，攻守更稳", "★★★"),
+        DifficultyLevel(4, "宗师", "更谨慎地计算杀招", "★★★★")
+    )
+
     Column(
-        modifier = Modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 18.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "选择难度",
-            fontSize = 24.sp,
+            text = "人机对弈",
+            fontSize = 32.sp,
             fontWeight = FontWeight.Bold
         )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        val levels = listOf(
-            1 to "简单",
-            2 to "中等",
-            3 to "困难",
-            4 to "大师"
+        Text(
+            text = "择一位棋友开局",
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
         )
 
-        for ((level, name) in levels) {
-            val selected = level == difficulty
-            Button(
-                onClick = { onSelect(level) },
+        Spacer(modifier = Modifier.height(24.dp))
+
+        for (level in levels) {
+            val selected = level.value == difficulty
+            ElevatedCard(
+                onClick = { onSelect(level.value) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 8.dp),
-                colors = ButtonDefaults.buttonColors(
+                    .padding(vertical = 6.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.elevatedCardColors(
                     containerColor = if (selected) {
-                        MaterialTheme.colorScheme.primary
+                        Color(0xFFFFE2B7)
                     } else {
-                        MaterialTheme.colorScheme.secondary
+                        Color(0xFFFFF7E8)
                     }
-                )
+                ),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (selected) 5.dp else 2.dp)
             ) {
-                Text(name, fontSize = 18.sp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = level.name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF6F3914)
+                        )
+                        Text(
+                            text = level.description,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.66f)
+                        )
+                    }
+                    Text(
+                        text = level.stars,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFB3261E)
+                    )
+                }
             }
         }
     }
 }
+
+private data class DifficultyLevel(
+    val value: Int,
+    val name: String,
+    val description: String,
+    val stars: String
+)

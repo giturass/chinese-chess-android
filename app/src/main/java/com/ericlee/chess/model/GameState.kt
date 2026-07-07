@@ -19,7 +19,7 @@ data class GameState(
 ) {
     fun makeMove(move: Move): GameState {
         val captured = board.makeMove(move)
-        val actualMove = move.copy(captured = captured)
+        val actualMove = move.copy(captured = captured, side = currentSide)
         val nextSide = currentSide.opposite()
 
         val newStatus = when {
@@ -56,4 +56,6 @@ data class GameState(
     val isInCheck: Boolean get() = board.isInCheck(currentSide)
 
     val lastMove: Move? get() = moveHistory.lastOrNull()
+
+    val lastMoveSide: Side? get() = lastMove?.side ?: if (moveHistory.isNotEmpty()) currentSide.opposite() else null
 }

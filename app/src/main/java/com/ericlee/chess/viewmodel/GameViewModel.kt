@@ -38,8 +38,8 @@ class GameViewModel : ViewModel() {
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
         _statusMessage.value = when (mode) {
-            GameMode.AI -> "人机对战 - 你执红方"
-            GameMode.LOCAL -> "本地双人对战"
+            GameMode.AI -> "红方先手，请出棋"
+            GameMode.LOCAL -> "红方先手，请出棋"
             GameMode.ENDGAME -> "残局挑战"
         }
         if (mode == GameMode.AI) {
@@ -58,7 +58,7 @@ class GameViewModel : ViewModel() {
         )
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
-        _statusMessage.value = "残局: ${puzzle.name}"
+        _statusMessage.value = "红方先手，破解 ${puzzle.name}"
     }
 
     fun onPositionClick(row: Int, col: Int) {
@@ -132,16 +132,20 @@ class GameViewModel : ViewModel() {
             GameStatus.DRAW -> "和棋"
             GameStatus.PLAYING -> {
                 val sideName = if (state.currentSide == Side.RED) "红方" else "黑方"
-                val check = if (state.isInCheck) "（将军！）" else ""
-                "${sideName}走棋${check}"
+                if (state.isInCheck) {
+                    "${sideName}被将军，必须应将"
+                } else {
+                    "请${sideName}出棋"
+                }
             }
         }
     }
 
-    fun undoMove() {
+    fun undoMove(side: Side? = null) {
         val state = _gameState.value
         if (state.moveHistory.isEmpty()) return
         if (_isAiThinking.value) return
+        if (side != null && state.mode == GameMode.LOCAL && state.lastMoveSide != side) return
 
         if (state.mode == GameMode.AI) {
             // Undo both AI and human move
@@ -159,11 +163,12 @@ class GameViewModel : ViewModel() {
         updateStatusMessage(_gameState.value)
     }
 
-    fun resign() {
+    fun resign(side: Side? = null) {
         gameVersion++
         _isAiThinking.value = false
         val state = _gameState.value
-        val winner = if (state.currentSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
+        val resigningSide = side ?: state.currentSide
+        val winner = if (resigningSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
         _gameState.value = state.copy(status = winner)
         updateStatusMessage(_gameState.value)
     }

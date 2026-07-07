@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -17,13 +18,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
 import kotlin.math.roundToInt
 
-private val BOARD_COLOR = Color(0xFFDEB887)
-private val GRID_COLOR = Color(0xFF3E1F00)
-private val RED_COLOR = Color(0xFFCC0000)
-private val BLACK_COLOR = Color(0xFF1A1A1A)
-private val SELECTED_COLOR = Color(0x80FFD700)
-private val LAST_MOVE_COLOR = Color(0x8000AA00)
-private val CHECK_COLOR = Color(0x80FF0000)
+private val BOARD_COLOR = Color(0xFFECCB8F)
+private val BOARD_INNER_COLOR = Color(0xFFF4D9A5)
+private val EDGE_COLOR = Color(0xFF6F3914)
+private val GRID_COLOR = Color(0xFF4B260D)
+private val RED_COLOR = Color(0xFFB32318)
+private val BLACK_COLOR = Color(0xFF1F1711)
+private val SELECTED_COLOR = Color(0x80F4C430)
+private val LAST_MOVE_COLOR = Color(0x805CA66B)
+private val CHECK_COLOR = Color(0xB8C31B12)
+private val MARKER_COLOR = Color(0xFF7B481E)
+private val PIECE_BG = Color(0xFFFFF4D2)
 
 @Composable
 fun ChessBoard(
@@ -62,16 +67,12 @@ fun ChessBoard(
         val offsetX = cellW / 2
         val offsetY = cellH
 
-        // Background
-        drawRect(
-            color = BOARD_COLOR,
-            topLeft = Offset(offsetX - cellW * 0.1f, offsetY - cellH * 0.1f),
-            size = Size(cellW * 9.2f, cellH * 10.2f)
-        )
+        drawBoardBackground(offsetX, offsetY, cellW, cellH)
 
         drawGrid(offsetX, offsetY, cellW, cellH)
         drawPalace(offsetX, offsetY, cellW, cellH)
         drawRiver(offsetX, offsetY, cellW, cellH)
+        drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         // Last move highlight
         if (lastMove != null) {
@@ -123,6 +124,34 @@ private fun toBoardRow(displayRow: Int, isFlipped: Boolean): Int = if (isFlipped
 
 private fun toBoardCol(displayCol: Int, isFlipped: Boolean): Int = if (isFlipped) 8 - displayCol else displayCol
 
+private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
+    val outerTopLeft = Offset(offsetX - cellW * 0.34f, offsetY - cellH * 0.38f)
+    val outerSize = Size(cellW * 8.68f, cellH * 9.76f)
+    val innerTopLeft = Offset(offsetX - cellW * 0.18f, offsetY - cellH * 0.22f)
+    val innerSize = Size(cellW * 8.36f, cellH * 9.44f)
+
+    drawRoundRect(
+        color = EDGE_COLOR,
+        topLeft = outerTopLeft,
+        size = outerSize,
+        cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
+    )
+    drawRoundRect(
+        color = BOARD_COLOR,
+        topLeft = Offset(outerTopLeft.x + cellW * 0.07f, outerTopLeft.y + cellH * 0.07f),
+        size = Size(outerSize.width - cellW * 0.14f, outerSize.height - cellH * 0.14f),
+        cornerRadius = CornerRadius(cellW * 0.12f, cellW * 0.12f)
+    )
+    drawRect(color = BOARD_INNER_COLOR, topLeft = innerTopLeft, size = innerSize)
+    drawRoundRect(
+        color = MARKER_COLOR,
+        topLeft = innerTopLeft,
+        size = innerSize,
+        cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f),
+        style = Stroke(width = 3f)
+    )
+}
+
 private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     // Horizontal lines
     for (r in 0..9) {
@@ -130,7 +159,7 @@ private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cel
             color = GRID_COLOR,
             start = Offset(offsetX, offsetY + r * cellH),
             end = Offset(offsetX + 8 * cellW, offsetY + r * cellH),
-            strokeWidth = 2f
+            strokeWidth = if (r == 0 || r == 9) 3.2f else 2f
         )
     }
 
@@ -141,7 +170,7 @@ private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cel
                 color = GRID_COLOR,
                 start = Offset(offsetX + c * cellW, offsetY),
                 end = Offset(offsetX + c * cellW, offsetY + 9 * cellH),
-                strokeWidth = 2f
+                strokeWidth = if (c == 0 || c == 8) 3.2f else 2f
             )
         } else {
             drawLine(
@@ -161,7 +190,7 @@ private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cel
 }
 
 private fun DrawScope.drawPalace(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
-    val palaceColor = Color(0xFF808080)
+    val palaceColor = MARKER_COLOR
     // Top palace
     drawLine(palaceColor, Offset(offsetX + 3 * cellW, offsetY), Offset(offsetX + 5 * cellW, offsetY + 2 * cellH), strokeWidth = 2f)
     drawLine(palaceColor, Offset(offsetX + 5 * cellW, offsetY), Offset(offsetX + 3 * cellW, offsetY + 2 * cellH), strokeWidth = 2f)
@@ -173,15 +202,66 @@ private fun DrawScope.drawPalace(offsetX: Float, offsetY: Float, cellW: Float, c
 
 private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     val y = offsetY + 4.5f * cellH
+    drawLine(
+        color = MARKER_COLOR,
+        start = Offset(offsetX + cellW * 0.3f, y),
+        end = Offset(offsetX + cellW * 3.7f, y),
+        strokeWidth = 1.4f
+    )
+    drawLine(
+        color = MARKER_COLOR,
+        start = Offset(offsetX + cellW * 4.3f, y),
+        end = Offset(offsetX + cellW * 7.7f, y),
+        strokeWidth = 1.4f
+    )
     drawContext.canvas.nativeCanvas.apply {
         val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#4A2800")
+            color = android.graphics.Color.parseColor("#6F3914")
             textSize = cellH * 0.55f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
+            letterSpacing = 0.08f
+            isAntiAlias = true
         }
         drawText("楚  河", offsetX + 2 * cellW, y + cellH * 0.18f, paint)
         drawText("汉  界", offsetX + 6 * cellW, y + cellH * 0.18f, paint)
+    }
+}
+
+private fun DrawScope.drawPositionMarkers(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
+    val points = listOf(
+        2 to 1, 2 to 7,
+        3 to 0, 3 to 2, 3 to 4, 3 to 6, 3 to 8,
+        6 to 0, 6 to 2, 6 to 4, 6 to 6, 6 to 8,
+        7 to 1, 7 to 7
+    )
+    for ((row, col) in points) {
+        drawMarker(row, col, offsetX, offsetY, cellW, cellH)
+    }
+}
+
+private fun DrawScope.drawMarker(row: Int, col: Int, offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
+    val cx = offsetX + col * cellW
+    val cy = offsetY + row * cellH
+    val len = cellW * 0.13f
+    val gap = cellW * 0.09f
+    val strokeWidth = 1.6f
+    val corners = listOf(-1f to -1f, 1f to -1f, -1f to 1f, 1f to 1f)
+
+    for ((sx, sy) in corners) {
+        if ((col == 0 && sx < 0) || (col == 8 && sx > 0)) continue
+        drawLine(
+            color = MARKER_COLOR,
+            start = Offset(cx + sx * gap, cy + sy * gap),
+            end = Offset(cx + sx * (gap + len), cy + sy * gap),
+            strokeWidth = strokeWidth
+        )
+        drawLine(
+            color = MARKER_COLOR,
+            start = Offset(cx + sx * gap, cy + sy * gap),
+            end = Offset(cx + sx * gap, cy + sy * (gap + len)),
+            strokeWidth = strokeWidth
+        )
     }
 }
 
@@ -201,15 +281,15 @@ private fun DrawScope.drawPositionHighlight(
 
 private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Float) {
     val color = if (piece.side == Side.RED) RED_COLOR else BLACK_COLOR
-    val bgColor = Color(0xFFFFF8DC)
+    val shadowColor = Color(0x55000000)
 
-    // Outer circle
-    drawCircle(color = bgColor, radius = radius, center = Offset(cx, cy))
-    drawCircle(color = color, radius = radius, center = Offset(cx, cy), style = Stroke(width = 3f))
+    drawCircle(color = shadowColor, radius = radius * 1.03f, center = Offset(cx + radius * 0.06f, cy + radius * 0.08f))
+    drawCircle(color = Color(0xFF7A4318), radius = radius * 1.02f, center = Offset(cx, cy))
+    drawCircle(color = PIECE_BG, radius = radius * 0.94f, center = Offset(cx, cy))
+    drawCircle(color = color, radius = radius * 0.94f, center = Offset(cx, cy), style = Stroke(width = 3.2f))
 
-    // Inner circle
-    drawCircle(color = bgColor, radius = radius * 0.82f, center = Offset(cx, cy))
-    drawCircle(color = color, radius = radius * 0.82f, center = Offset(cx, cy), style = Stroke(width = 1.5f))
+    drawCircle(color = Color(0xFFFFF9E7), radius = radius * 0.76f, center = Offset(cx, cy))
+    drawCircle(color = color, radius = radius * 0.76f, center = Offset(cx, cy), style = Stroke(width = 1.4f))
 
     // Character
     drawContext.canvas.nativeCanvas.apply {
