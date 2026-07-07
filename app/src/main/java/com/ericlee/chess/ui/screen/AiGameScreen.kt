@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -181,24 +182,29 @@ fun AiGameScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
+                val redPanelAtTop = state.isFlipped
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 4.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    AiControlPanel(
-                        state = state,
-                        statusMessage = statusMessage,
-                        isAiThinking = isAiThinking,
-                        difficulty = difficulty,
-                        onUndo = { viewModel.undoMove() },
-                        onDraw = { viewModel.agreeDraw(Side.RED) },
-                        onResign = { viewModel.resign(Side.RED) },
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-                    )
+                    if (redPanelAtTop) {
+                        AiControlPanel(
+                            state = state,
+                            statusMessage = statusMessage,
+                            isAiThinking = isAiThinking,
+                            difficulty = difficulty,
+                            onUndo = { viewModel.undoMove() },
+                            onDraw = { viewModel.agreeDraw(Side.RED) },
+                            onResign = { viewModel.resign(Side.RED) },
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .graphicsLayer(rotationZ = 180f)
+                        )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
 
                     ChessBoard(
                         board = state.board,
@@ -209,6 +215,21 @@ fun AiGameScreen(
                         isFlipped = state.isFlipped,
                         onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
                     )
+
+                    if (!redPanelAtTop) {
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        AiControlPanel(
+                            state = state,
+                            statusMessage = statusMessage,
+                            isAiThinking = isAiThinking,
+                            difficulty = difficulty,
+                            onUndo = { viewModel.undoMove() },
+                            onDraw = { viewModel.agreeDraw(Side.RED) },
+                            onResign = { viewModel.resign(Side.RED) },
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
         }

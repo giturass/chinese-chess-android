@@ -54,16 +54,15 @@ fun GameStatusBanner(
     }
 
     val accent = when {
-        state.status == GameStatus.RED_WIN -> Color(0xFFB3261E)
-        state.status == GameStatus.BLACK_WIN -> Color(0xFF2B2118)
-        isCheck -> Color(0xFFC62828)
-        state.currentSide == Side.RED -> Color(0xFFB3261E)
-        else -> Color(0xFF2B2118)
+        state.status == GameStatus.RED_WIN -> Color(0xFF9F2119)
+        state.status == GameStatus.BLACK_WIN -> Color(0xFF17110D)
+        isCheck -> Color(0xFF9F2119)
+        else -> Color(0xFF2F251C)
     }
     val container = when {
-        state.status != GameStatus.PLAYING -> Color(0xFFFFE0B2)
-        isCheck -> Color(0xFFFFDAD6)
-        else -> Color(0xFFFFF2D7)
+        state.status != GameStatus.PLAYING -> Color(0xFFEAD8B8)
+        isCheck -> Color(0xFFECD6C6)
+        else -> Color(0xFFEFE2C8)
     }
 
     Card(

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
@@ -54,6 +55,7 @@ fun LocalControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
+        accentSide = null,
         modifier = modifier
     ) {
         SideActionRow(
@@ -88,6 +90,7 @@ fun PlayerControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
+        accentSide = side,
         metaText = "${side.displayName()} · 第 ${state.moveHistory.size / 2 + 1} 回合",
         modifier = modifier
     ) {
@@ -116,8 +119,10 @@ fun AiControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
+        accentSide = Side.RED,
         isAiThinking = isAiThinking,
         metaText = "难度 $difficulty",
+        showHistory = false,
         modifier = modifier
     ) {
         Row(
@@ -162,12 +167,15 @@ private fun GameInfoPanel(
     state: GameState,
     statusMessage: String,
     modifier: Modifier = Modifier,
+    accentSide: Side? = null,
     isAiThinking: Boolean = false,
     metaText: String? = null,
+    showHistory: Boolean = true,
     actions: @Composable ColumnScope.() -> Unit
 ) {
     var historyExpanded by rememberSaveable { mutableStateOf(false) }
-    val accent = state.accentColor()
+    val accent = accentSide?.accentColor() ?: state.accentColor()
+    val detailColor = if (accentSide == Side.BLACK) Color(0xFF111111) else Color(0xFF352112)
     val latestMove = state.lastMove?.toChineseNotation() ?: "尚未行棋"
     val headline = state.headline()
     val meta = metaText ?: "第 ${state.moveHistory.size / 2 + 1} 回合"
@@ -199,7 +207,7 @@ private fun GameInfoPanel(
                     Text(
                         text = if (state.status == GameStatus.PLAYING) "最近：$latestMove" else statusMessage,
                         fontSize = 13.sp,
-                        color = Color(0xFF352112).copy(alpha = 0.76f)
+                        color = detailColor.copy(alpha = 0.82f)
                     )
                 }
                 if (isAiThinking) {
@@ -213,33 +221,36 @@ private fun GameInfoPanel(
 
             actions()
 
-            TextButton(
-                onClick = { historyExpanded = !historyExpanded },
-                enabled = state.moveHistory.isNotEmpty(),
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-            ) {
-                Icon(
-                    imageVector = if (historyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                Text("历史棋局 ${state.moveHistory.size} 手", fontSize = 13.sp)
-            }
-
-            if (historyExpanded) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 126.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+            if (showHistory) {
+                TextButton(
+                    onClick = { historyExpanded = !historyExpanded },
+                    enabled = state.moveHistory.isNotEmpty(),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = detailColor)
                 ) {
-                    items(state.moveHistory.toMoveLines()) { line ->
-                        Text(
-                            text = line,
-                            fontSize = 13.sp,
-                            color = Color(0xFF2E2118)
-                        )
+                    Icon(
+                        imageVector = if (historyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text("历史棋局 ${state.moveHistory.size} 手", fontSize = 13.sp)
+                }
+
+                if (historyExpanded) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 126.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        items(state.moveHistory.toMoveLines()) { line ->
+                            Text(
+                                text = line,
+                                fontSize = 13.sp,
+                                color = detailColor
+                            )
+                        }
                     }
                 }
             }
@@ -256,6 +267,7 @@ private fun SideActionRow(
     onDraw: () -> Unit,
     onResign: () -> Unit
 ) {
+    val contentColor = if (side == Side.RED) Color(0xFFB32318) else Color(0xFF111111)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -272,7 +284,8 @@ private fun SideActionRow(
             onClick = onUndo,
             enabled = canUndo,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
             Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
@@ -282,7 +295,8 @@ private fun SideActionRow(
             onClick = onDraw,
             enabled = canAct,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
             Text("求和", fontSize = 13.sp)
         }
@@ -290,7 +304,8 @@ private fun SideActionRow(
             onClick = onResign,
             enabled = canAct,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
             Text("认输", fontSize = 13.sp)
         }
@@ -298,6 +313,8 @@ private fun SideActionRow(
 }
 
 fun Side.displayName(): String = if (this == Side.RED) "红方" else "黑方"
+
+private fun Side.accentColor(): Color = if (this == Side.RED) Color(0xFFB32318) else Color(0xFF111111)
 
 private fun GameState.headline(): String = when (status) {
     GameStatus.RED_WIN -> "红方获胜"

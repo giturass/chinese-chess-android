@@ -28,17 +28,17 @@ import com.ericlee.chess.model.*
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val STONE_BASE = Color(0xFF687371)
-private val STONE_LIGHT = Color(0xFF9BA8A3)
-private val STONE_MID = Color(0xFF77837F)
-private val STONE_DARK = Color(0xFF303C3B)
-private val EDGE_COLOR = Color(0xFF24302F)
-private val GRID_COLOR = Color(0xFF263433)
+private val STONE_BASE = Color(0xFFB8B0A0)
+private val STONE_LIGHT = Color(0xFFE3D9C7)
+private val STONE_MID = Color(0xFFC6BBA7)
+private val STONE_DARK = Color(0xFF62594C)
+private val EDGE_COLOR = Color(0xFF4D4438)
+private val GRID_COLOR = Color(0xFF51483D)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
-private val MARKER_COLOR = Color(0xFF2D3C3A)
+private val MARKER_COLOR = Color(0xFF625548)
 private val PIECE_BG = Color(0xFFF6D495)
 
 @Composable
@@ -203,10 +203,10 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFA8B1AA),
-                Color(0xFF7D8985),
-                Color(0xFF65706E),
-                Color(0xFF8D9994)
+                Color(0xFFE7DDCA),
+                Color(0xFFCBBFA9),
+                Color(0xFFAFA490),
+                Color(0xFFD4C8B3)
             ),
             start = Offset(innerTopLeft.x, innerTopLeft.y),
             end = Offset(innerTopLeft.x + innerSize.width, innerTopLeft.y + innerSize.height)
@@ -276,6 +276,20 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = innerSize,
         cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f),
         style = Stroke(width = 3f)
+    )
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.16f),
+        topLeft = Offset(outerTopLeft.x + cellW * 0.12f, outerTopLeft.y + cellH * 0.12f),
+        size = Size(outerSize.width - cellW * 0.24f, outerSize.height - cellH * 0.24f),
+        cornerRadius = CornerRadius(cellW * 0.11f, cellW * 0.11f),
+        style = Stroke(width = cellW * 0.045f)
+    )
+    drawRoundRect(
+        color = Color.Black.copy(alpha = 0.18f),
+        topLeft = Offset(outerTopLeft.x + cellW * 0.2f, outerTopLeft.y + cellH * 0.2f),
+        size = Size(outerSize.width - cellW * 0.4f, outerSize.height - cellH * 0.4f),
+        cornerRadius = CornerRadius(cellW * 0.09f, cellW * 0.09f),
+        style = Stroke(width = cellW * 0.035f)
     )
 }
 
@@ -357,7 +371,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
     for ((_, topLeft) in plaques) {
         drawRoundRect(
             brush = Brush.linearGradient(
-                colors = listOf(Color(0xFF8E9995), Color(0xFF65716F), Color(0xFF4A5654)),
+                colors = listOf(Color(0xFFD7CEBC), Color(0xFFB6AC98), Color(0xFF887D6C)),
                 start = topLeft,
                 end = Offset(topLeft.x + plaqueSize.width, topLeft.y + plaqueSize.height)
             ),
@@ -383,7 +397,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
 
     drawContext.canvas.nativeCanvas.apply {
         val highlightPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#B8C4BC")
+            color = android.graphics.Color.parseColor("#EFE6D2")
             textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
@@ -392,7 +406,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
         }
         val carvedPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#263130")
+            color = android.graphics.Color.parseColor("#4A4034")
             textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true

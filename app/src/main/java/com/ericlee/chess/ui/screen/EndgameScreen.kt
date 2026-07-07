@@ -58,7 +58,10 @@ fun EndgameScreen(
             AlertDialog(
                 onDismissRequest = { showHint = false },
                 confirmButton = {
-                    TextButton(onClick = { showHint = false }) {
+                    TextButton(
+                        onClick = { showHint = false },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2F251C))
+                    ) {
                         Text("知道了")
                     }
                 },
@@ -187,14 +190,18 @@ private fun GameContent(
             ) {
                 OutlinedButton(
                     onClick = onUndo,
-                    enabled = state.moveHistory.isNotEmpty()
+                    enabled = state.moveHistory.isNotEmpty(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2F251C))
                 ) {
                     Icon(Icons.Default.Undo, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("悔棋")
                 }
 
-                OutlinedButton(onClick = onShowHint) {
+                OutlinedButton(
+                    onClick = onShowHint,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2F251C))
+                ) {
                     Text("提示")
                 }
             }
