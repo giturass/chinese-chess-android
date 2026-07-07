@@ -1,16 +1,25 @@
 package com.ericlee.chess.ui.board
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -29,10 +38,13 @@ private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
 private val MARKER_COLOR = Color(0xFF7B481E)
 private val PIECE_BG = Color(0xFFFFF4D2)
+private val RIVER_WASH = Color(0x33306F75)
+private val RIVER_LINE = Color(0x8A3E7D78)
 
 @Composable
 fun ChessBoard(
     board: Board,
+    currentSide: Side,
     selectedPiece: Piece?,
     legalMoves: List<Move>,
     lastMove: Move?,
@@ -43,6 +55,28 @@ fun ChessBoard(
     val pieceMap = remember(board.pieces.toList()) {
         board.pieces.associateBy { Pair(it.row, it.col) }
     }
+    val checkedKing = remember(board.pieces.toList(), currentSide) {
+        if (board.isInCheck(currentSide)) board.findKing(currentSide) else null
+    }
+    val transition = rememberInfiniteTransition(label = "boardEffects")
+    val pulse by transition.animateFloat(
+        initialValue = 0.86f,
+        targetValue = 1.16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 760),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    val riverPhase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "riverPhase"
+    )
 
     Canvas(
         modifier = modifier
@@ -52,7 +86,8 @@ fun ChessBoard(
                 detectTapGestures { offset ->
                     val cellW = size.width / 10f
                     val cellH = size.height / 11f
-                    val displayCol = ((offset.x - cellW / 2) / cellW).roundToInt()
+                    val offsetX = size.width / 2f - 4f * cellW
+                    val displayCol = ((offset.x - offsetX) / cellW).roundToInt()
                     val displayRow = ((offset.y - cellH) / cellH).roundToInt()
                     val row = toBoardRow(displayRow, isFlipped)
                     val col = toBoardCol(displayCol, isFlipped)
@@ -64,28 +99,24 @@ fun ChessBoard(
     ) {
         val cellW = size.width / 10f
         val cellH = size.height / 11f
-        val offsetX = cellW / 2
+        val offsetX = size.width / 2f - 4f * cellW
         val offsetY = cellH
 
         drawBoardBackground(offsetX, offsetY, cellW, cellH)
 
         drawGrid(offsetX, offsetY, cellW, cellH)
         drawPalace(offsetX, offsetY, cellW, cellH)
-        drawRiver(offsetX, offsetY, cellW, cellH)
+        drawRiver(offsetX, offsetY, cellW, cellH, riverPhase)
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
-        // Last move highlight
         if (lastMove != null) {
-            drawPositionHighlight(lastMove.fromRow, lastMove.fromCol, offsetX, offsetY, cellW, cellH, LAST_MOVE_COLOR, isFlipped)
-            drawPositionHighlight(lastMove.toRow, lastMove.toCol, offsetX, offsetY, cellW, cellH, LAST_MOVE_COLOR, isFlipped)
+            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped)
         }
 
-        // Selected piece highlight
         if (selectedPiece != null) {
             drawPositionHighlight(selectedPiece.row, selectedPiece.col, offsetX, offsetY, cellW, cellH, SELECTED_COLOR, isFlipped)
         }
 
-        // Legal move dots
         for (move in legalMoves) {
             val cx = offsetX + toDisplayCol(move.toCol, isFlipped) * cellW
             val cy = offsetY + toDisplayRow(move.toRow, isFlipped) * cellH
@@ -93,20 +124,30 @@ fun ChessBoard(
             if (target != null) {
                 drawCircle(
                     color = CHECK_COLOR,
-                    radius = cellW * 0.45f,
+                    radius = cellW * 0.48f,
                     center = Offset(cx, cy),
-                    style = Stroke(width = 4f)
+                    style = Stroke(width = 4.5f)
                 )
+                drawCaptureBurst(cx, cy, cellW * 0.28f, CHECK_COLOR, 0.85f)
             } else {
                 drawCircle(
-                    color = Color(0x80006600),
-                    radius = cellW * 0.12f,
+                    color = Color(0xA85E7F30),
+                    radius = cellW * 0.13f,
                     center = Offset(cx, cy)
+                )
+                drawCircle(
+                    color = Color(0x556FA23A),
+                    radius = cellW * 0.23f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 2f)
                 )
             }
         }
 
-        // Draw pieces
+        if (checkedKing != null) {
+            drawCheckEffect(checkedKing, offsetX, offsetY, cellW, cellH, isFlipped, pulse)
+        }
+
         for ((row, col) in pieceMap.keys) {
             val piece = pieceMap[Pair(row, col)] ?: continue
             val cx = offsetX + toDisplayCol(col, isFlipped) * cellW
@@ -200,20 +241,27 @@ private fun DrawScope.drawPalace(offsetX: Float, offsetY: Float, cellW: Float, c
     drawLine(palaceColor, Offset(offsetX + 5 * cellW, offsetY + 7 * cellH), Offset(offsetX + 3 * cellW, offsetY + 9 * cellH), strokeWidth = 2f)
 }
 
-private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
+private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float, phase: Float) {
     val y = offsetY + 4.5f * cellH
-    drawLine(
-        color = MARKER_COLOR,
-        start = Offset(offsetX + cellW * 0.3f, y),
-        end = Offset(offsetX + cellW * 3.7f, y),
-        strokeWidth = 1.4f
+    drawRoundRect(
+        color = RIVER_WASH,
+        topLeft = Offset(offsetX + cellW * 0.18f, y - cellH * 0.38f),
+        size = Size(cellW * 7.64f, cellH * 0.76f),
+        cornerRadius = CornerRadius(cellH * 0.32f, cellH * 0.32f)
     )
-    drawLine(
-        color = MARKER_COLOR,
-        start = Offset(offsetX + cellW * 4.3f, y),
-        end = Offset(offsetX + cellW * 7.7f, y),
-        strokeWidth = 1.4f
-    )
+    for (i in 0..3) {
+        val waveY = y - cellH * 0.25f + i * cellH * 0.16f
+        val waveOffset = (phase + i * 0.24f) % 1f
+        drawWave(
+            startX = offsetX + cellW * (0.35f + waveOffset * 0.38f),
+            endX = offsetX + cellW * 7.65f,
+            y = waveY,
+            amplitude = cellH * 0.045f,
+            wavelength = cellW * 0.92f,
+            color = RIVER_LINE.copy(alpha = 0.42f + i * 0.08f),
+            strokeWidth = 1.6f
+        )
+    }
     drawContext.canvas.nativeCanvas.apply {
         val paint = android.graphics.Paint().apply {
             color = android.graphics.Color.parseColor("#6F3914")
@@ -226,6 +274,30 @@ private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, ce
         drawText("楚  河", offsetX + 2 * cellW, y + cellH * 0.18f, paint)
         drawText("汉  界", offsetX + 6 * cellW, y + cellH * 0.18f, paint)
     }
+}
+
+private fun DrawScope.drawWave(
+    startX: Float,
+    endX: Float,
+    y: Float,
+    amplitude: Float,
+    wavelength: Float,
+    color: Color,
+    strokeWidth: Float
+) {
+    val path = Path()
+    path.moveTo(startX, y)
+    var x = startX
+    var crest = true
+    while (x < endX) {
+        val nextX = (x + wavelength / 2f).coerceAtMost(endX)
+        val controlX = x + (nextX - x) / 2f
+        val controlY = y + if (crest) -amplitude else amplitude
+        path.quadraticBezierTo(controlX, controlY, nextX, y)
+        x = nextX
+        crest = !crest
+    }
+    drawPath(path = path, color = color, style = Stroke(width = strokeWidth))
 }
 
 private fun DrawScope.drawPositionMarkers(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
@@ -279,19 +351,108 @@ private fun DrawScope.drawPositionHighlight(
     drawCircle(color = color, radius = cellW * 0.46f, center = Offset(cx, cy))
 }
 
+private fun DrawScope.drawMoveEffect(
+    move: Move,
+    offsetX: Float,
+    offsetY: Float,
+    cellW: Float,
+    cellH: Float,
+    isFlipped: Boolean
+) {
+    val from = boardPositionCenter(move.fromRow, move.fromCol, offsetX, offsetY, cellW, cellH, isFlipped)
+    val to = boardPositionCenter(move.toRow, move.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
+    val color = if (move.side == Side.RED) RED_COLOR else Color(0xFF3A2D22)
+
+    drawLine(
+        color = color.copy(alpha = 0.34f),
+        start = from,
+        end = to,
+        strokeWidth = cellW * 0.08f
+    )
+    drawCircle(color = LAST_MOVE_COLOR, radius = cellW * 0.48f, center = from)
+    drawCircle(color = color.copy(alpha = 0.36f), radius = cellW * 0.48f, center = to)
+    drawCircle(color = color, radius = cellW * 0.37f, center = to, style = Stroke(width = 3.5f))
+
+    if (move.captured != null) {
+        drawCaptureBurst(to.x, to.y, cellW * 0.43f, CHECK_COLOR, 1f)
+    }
+}
+
+private fun DrawScope.drawCaptureBurst(cx: Float, cy: Float, radius: Float, color: Color, scale: Float) {
+    val burst = radius * scale
+    for (i in 0 until 8) {
+        val angle = Math.PI * 2.0 * i / 8.0
+        val inner = burst * 0.62f
+        val outer = burst * 1.08f
+        val start = Offset(
+            x = cx + kotlin.math.cos(angle).toFloat() * inner,
+            y = cy + kotlin.math.sin(angle).toFloat() * inner
+        )
+        val end = Offset(
+            x = cx + kotlin.math.cos(angle).toFloat() * outer,
+            y = cy + kotlin.math.sin(angle).toFloat() * outer
+        )
+        drawLine(color = color, start = start, end = end, strokeWidth = 2.4f)
+    }
+}
+
+private fun DrawScope.drawCheckEffect(
+    king: Piece,
+    offsetX: Float,
+    offsetY: Float,
+    cellW: Float,
+    cellH: Float,
+    isFlipped: Boolean,
+    pulse: Float
+) {
+    val center = boardPositionCenter(king.row, king.col, offsetX, offsetY, cellW, cellH, isFlipped)
+    drawCircle(color = CHECK_COLOR.copy(alpha = 0.42f), radius = cellW * 0.58f * pulse, center = center)
+    drawCircle(color = CHECK_COLOR, radius = cellW * 0.49f * pulse, center = center, style = Stroke(width = 4.2f))
+    drawCaptureBurst(center.x, center.y, cellW * 0.45f, CHECK_COLOR, pulse)
+}
+
+private fun boardPositionCenter(
+    row: Int,
+    col: Int,
+    offsetX: Float,
+    offsetY: Float,
+    cellW: Float,
+    cellH: Float,
+    isFlipped: Boolean
+): Offset = Offset(
+    x = offsetX + toDisplayCol(col, isFlipped) * cellW,
+    y = offsetY + toDisplayRow(row, isFlipped) * cellH
+)
+
 private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Float) {
     val color = if (piece.side == Side.RED) RED_COLOR else BLACK_COLOR
     val shadowColor = Color(0x55000000)
 
-    drawCircle(color = shadowColor, radius = radius * 1.03f, center = Offset(cx + radius * 0.06f, cy + radius * 0.08f))
+    drawCircle(color = shadowColor, radius = radius * 1.08f, center = Offset(cx + radius * 0.1f, cy + radius * 0.14f))
     drawCircle(color = Color(0xFF7A4318), radius = radius * 1.02f, center = Offset(cx, cy))
-    drawCircle(color = PIECE_BG, radius = radius * 0.94f, center = Offset(cx, cy))
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFFCEB), PIECE_BG, Color(0xFFE5BD73)),
+            center = Offset(cx - radius * 0.36f, cy - radius * 0.42f),
+            radius = radius * 1.35f
+        ),
+        radius = radius * 0.94f,
+        center = Offset(cx, cy)
+    )
     drawCircle(color = color, radius = radius * 0.94f, center = Offset(cx, cy), style = Stroke(width = 3.2f))
 
-    drawCircle(color = Color(0xFFFFF9E7), radius = radius * 0.76f, center = Offset(cx, cy))
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFFFFF), Color(0xFFFFF2C0)),
+            center = Offset(cx - radius * 0.22f, cy - radius * 0.28f),
+            radius = radius * 0.88f
+        ),
+        radius = radius * 0.76f,
+        center = Offset(cx, cy)
+    )
     drawCircle(color = color, radius = radius * 0.76f, center = Offset(cx, cy), style = Stroke(width = 1.4f))
+    drawCircle(color = Color(0x8AFFFFFF), radius = radius * 0.18f, center = Offset(cx - radius * 0.32f, cy - radius * 0.36f))
 
-    // Character
     drawContext.canvas.nativeCanvas.apply {
         val paint = android.graphics.Paint().apply {
             this.color = when (piece.side) {

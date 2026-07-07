@@ -46,10 +46,15 @@ fun AiGameScreen(
                 },
                 actions = {
                     if (gameStarted) {
-                        IconButton(onClick = {
-                            viewModel.startGame(GameMode.AI, difficulty)
-                        }, enabled = !isAiThinking) {
-                            Icon(Icons.Default.Refresh, "重新开始")
+                        Button(
+                            onClick = { viewModel.startGame(GameMode.AI, difficulty) },
+                            enabled = !isAiThinking,
+                            modifier = Modifier.padding(end = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("重置棋盘")
                         }
                     }
                 }
@@ -84,6 +89,7 @@ fun AiGameScreen(
                 // Chess board
                 ChessBoard(
                     board = state.board,
+                    currentSide = state.currentSide,
                     selectedPiece = selectedPiece,
                     legalMoves = legalMoves,
                     lastMove = state.lastMove,

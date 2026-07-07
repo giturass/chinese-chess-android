@@ -127,8 +127,14 @@ private fun GameContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onReset) {
-                        Icon(Icons.Default.Refresh, "重新开始")
+                    Button(
+                        onClick = onReset,
+                        modifier = Modifier.padding(end = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("重置棋盘")
                     }
                 }
             )
@@ -175,6 +181,7 @@ private fun GameContent(
             // Chess board
             ChessBoard(
                 board = state.board,
+                currentSide = state.currentSide,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,

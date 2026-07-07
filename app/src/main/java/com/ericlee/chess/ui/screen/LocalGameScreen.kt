@@ -46,10 +46,14 @@ fun LocalGameScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.startGame(GameMode.LOCAL)
-                    }) {
-                        Icon(Icons.Default.Refresh, "重新开始")
+                    Button(
+                        onClick = { viewModel.startGame(GameMode.LOCAL) },
+                        modifier = Modifier.padding(end = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("重置棋盘")
                     }
                 }
             )
@@ -72,9 +76,20 @@ fun LocalGameScreen(
                     .padding(8.dp)
             )
 
-            // Chess board
+            PlayerActionPanel(
+                side = Side.BLACK,
+                canUndo = state.lastMoveSide == Side.BLACK,
+                canResign = state.status == GameStatus.PLAYING,
+                onUndo = { viewModel.undoMove(Side.BLACK) },
+                onResign = { viewModel.resign(Side.BLACK) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+
             ChessBoard(
                 board = state.board,
+                currentSide = state.currentSide,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,
@@ -82,31 +97,16 @@ fun LocalGameScreen(
                 onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
             )
 
-            // Control buttons
-            Row(
+            PlayerActionPanel(
+                side = Side.RED,
+                canUndo = state.lastMoveSide == Side.RED,
+                canResign = state.status == GameStatus.PLAYING,
+                onUndo = { viewModel.undoMove(Side.RED) },
+                onResign = { viewModel.resign(Side.RED) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                PlayerActionPanel(
-                    side = Side.RED,
-                    canUndo = state.lastMoveSide == Side.RED,
-                    canResign = state.status == GameStatus.PLAYING,
-                    onUndo = { viewModel.undoMove(Side.RED) },
-                    onResign = { viewModel.resign(Side.RED) },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                PlayerActionPanel(
-                    side = Side.BLACK,
-                    canUndo = state.lastMoveSide == Side.BLACK,
-                    canResign = state.status == GameStatus.PLAYING,
-                    onUndo = { viewModel.undoMove(Side.BLACK) },
-                    onResign = { viewModel.resign(Side.BLACK) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
     }
 }
@@ -129,21 +129,24 @@ private fun PlayerActionPanel(
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = sideName,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = accent
+                color = accent,
+                modifier = Modifier.width(42.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onUndo,
                 enabled = canUndo,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
@@ -152,7 +155,7 @@ private fun PlayerActionPanel(
             OutlinedButton(
                 onClick = onResign,
                 enabled = canResign,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f)
             ) {
                 Text("认输", fontSize = 13.sp)
             }
