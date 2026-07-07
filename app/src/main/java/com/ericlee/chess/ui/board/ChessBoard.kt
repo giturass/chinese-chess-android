@@ -28,12 +28,12 @@ import com.ericlee.chess.model.*
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val STONE_BASE = Color(0xFFC8C0B0)
-private val STONE_LIGHT = Color(0xFFF0E7D4)
-private val STONE_MID = Color(0xFFD2C7B5)
-private val STONE_DARK = Color(0xFF766B5C)
-private val EDGE_COLOR = Color(0xFF51483E)
-private val GRID_COLOR = Color(0xFF3A332C)
+private val STONE_BASE = Color(0xFFB8B2A6)
+private val STONE_LIGHT = Color(0xFFE6DFD0)
+private val STONE_MID = Color(0xFFC8BFAE)
+private val STONE_DARK = Color(0xFF5E574E)
+private val EDGE_COLOR = Color(0xFF463F37)
+private val GRID_COLOR = Color(0xFF2D2823)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
@@ -81,7 +81,7 @@ fun ChessBoard(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(0.86f)
+            .aspectRatio(9f / 10f)
             .pointerInput(isFlipped, onPositionClick) {
                 detectTapGestures { offset ->
                     val cellW = min(size.width / 9.15f, size.height / 10.35f)
@@ -263,12 +263,16 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
             )
         }
     }
-    for (i in 0..34) {
+    for (i in 0..72) {
         val x = innerTopLeft.x + innerSize.width * ((i * 37 % 100) / 100f)
         val y = innerTopLeft.y + innerSize.height * ((i * 53 % 100) / 100f)
-        val r = cellW * (0.02f + (i % 5) * 0.008f)
-        drawCircle(Color.Black.copy(alpha = 0.09f), radius = r, center = Offset(x, y))
-        drawCircle(Color.White.copy(alpha = 0.08f), radius = r * 0.5f, center = Offset(x - r * 0.25f, y - r * 0.25f))
+        val w = cellW * (0.035f + (i % 6) * 0.014f)
+        val h = cellH * (0.018f + (i % 4) * 0.012f)
+        drawOval(
+            color = if (i % 2 == 0) Color.Black.copy(alpha = 0.075f) else Color.White.copy(alpha = 0.07f),
+            topLeft = Offset(x - w / 2f, y - h / 2f),
+            size = Size(w, h)
+        )
     }
     for (i in 0..16) {
         val x = innerTopLeft.x + innerSize.width * ((i * 61 % 100) / 100f)
@@ -280,6 +284,24 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
             strokeWidth = 1.2f
         )
     }
+    drawStoneVein(
+        points = listOf(0.06f to 0.12f, 0.22f to 0.18f, 0.37f to 0.15f, 0.55f to 0.24f, 0.80f to 0.21f),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        width = 2.2f
+    )
+    drawStoneVein(
+        points = listOf(0.10f to 0.48f, 0.28f to 0.43f, 0.46f to 0.50f, 0.62f to 0.47f, 0.90f to 0.56f),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        width = 1.8f
+    )
+    drawStoneVein(
+        points = listOf(0.18f to 0.90f, 0.34f to 0.80f, 0.52f to 0.85f, 0.74f to 0.76f),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        width = 2.0f
+    )
     val cracks = listOf(
         listOf(0.10f to 0.20f, 0.18f to 0.24f, 0.25f to 0.22f, 0.34f to 0.28f),
         listOf(0.72f to 0.12f, 0.68f to 0.20f, 0.74f to 0.27f, 0.70f to 0.36f),
@@ -330,6 +352,32 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = Size(outerSize.width - cellW * 0.4f, outerSize.height - cellH * 0.4f),
         cornerRadius = CornerRadius(cellW * 0.09f, cellW * 0.09f),
         style = Stroke(width = cellW * 0.035f)
+    )
+}
+
+private fun DrawScope.drawStoneVein(
+    points: List<Pair<Float, Float>>,
+    topLeft: Offset,
+    size: Size,
+    width: Float
+) {
+    if (points.size < 2) return
+    val path = Path().apply {
+        val first = points.first()
+        moveTo(topLeft.x + size.width * first.first, topLeft.y + size.height * first.second)
+        for (point in points.drop(1)) {
+            lineTo(topLeft.x + size.width * point.first, topLeft.y + size.height * point.second)
+        }
+    }
+    drawPath(
+        path = path,
+        color = Color.White.copy(alpha = 0.12f),
+        style = Stroke(width = width + 1.1f)
+    )
+    drawPath(
+        path = path,
+        color = Color.Black.copy(alpha = 0.18f),
+        style = Stroke(width = width)
     )
 }
 

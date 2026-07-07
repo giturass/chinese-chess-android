@@ -7,16 +7,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,12 +20,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +31,6 @@ import com.ericlee.chess.model.GameState
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.model.toChineseNotation
-import com.ericlee.chess.model.toMoveLines
 
 @Composable
 fun LocalControlPanel(
@@ -56,7 +45,6 @@ fun LocalControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = null,
-        showHistory = false,
         modifier = modifier
     ) {
         SideActionRow(
@@ -93,7 +81,6 @@ fun PlayerControlPanel(
         statusMessage = statusMessage,
         accentSide = side,
         metaText = "${side.displayName()} · 第 ${state.moveHistory.size / 2 + 1} 回合",
-        showHistory = false,
         modifier = modifier
     ) {
         SideActionRow(
@@ -124,7 +111,6 @@ fun AiControlPanel(
         accentSide = Side.RED,
         isAiThinking = isAiThinking,
         metaText = "难度 $difficulty",
-        showHistory = false,
         modifier = modifier
     ) {
         Row(
@@ -172,10 +158,8 @@ private fun GameInfoPanel(
     accentSide: Side? = null,
     isAiThinking: Boolean = false,
     metaText: String? = null,
-    showHistory: Boolean = true,
     actions: @Composable ColumnScope.() -> Unit
 ) {
-    var historyExpanded by rememberSaveable { mutableStateOf(false) }
     val accent = accentSide?.accentColor() ?: state.accentColor()
     val detailColor = if (accentSide == Side.BLACK) Color(0xFF111111) else Color(0xFF352112)
     val latestMove = state.lastMove?.toChineseNotation() ?: "尚未行棋"
@@ -222,39 +206,6 @@ private fun GameInfoPanel(
             }
 
             actions()
-
-            if (showHistory && state.moveHistory.isNotEmpty()) {
-                TextButton(
-                    onClick = { historyExpanded = !historyExpanded },
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = detailColor)
-                ) {
-                    Icon(
-                        imageVector = if (historyExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Text("历史棋局 ${state.moveHistory.size} 手", fontSize = 13.sp)
-                }
-
-                if (historyExpanded) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 126.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        items(state.moveHistory.toMoveLines()) { line ->
-                            Text(
-                                text = line,
-                                fontSize = 13.sp,
-                                color = detailColor
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
