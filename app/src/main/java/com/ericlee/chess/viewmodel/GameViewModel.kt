@@ -48,8 +48,8 @@ class GameViewModel : ViewModel() {
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
         _statusMessage.value = when (mode) {
-            GameMode.AI -> if (humanSide == Side.RED) "红方先手，请出棋" else "红方先手，AI 先行"
-            GameMode.LOCAL -> "红方先手，请出棋"
+            GameMode.AI -> if (humanSide == Side.RED) "红方先手" else "红方先手，AI 先行"
+            GameMode.LOCAL -> "红方先手"
             GameMode.ENDGAME -> "残局挑战"
         }
         if (mode == GameMode.AI) {
@@ -151,7 +151,7 @@ class GameViewModel : ViewModel() {
                 if (state.isInCheck) {
                     "${sideName}被将军，必须应将"
                 } else {
-                    "请${sideName}出棋"
+                    "轮到${sideName}"
                 }
             }
         }
@@ -177,6 +177,13 @@ class GameViewModel : ViewModel() {
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         updateStatusMessage(_gameState.value)
+    }
+
+    fun toggleBoardFlipped() {
+        val state = _gameState.value
+        _gameState.value = state.copy(isFlipped = !state.isFlipped)
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
     }
 
     fun resign(side: Side? = null) {

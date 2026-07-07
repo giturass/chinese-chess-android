@@ -13,11 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,14 +56,44 @@ fun AiGameScreen(
     onBack: () -> Unit
 ) {
     var difficulty by remember { mutableIntStateOf(3) }
-    var humanSide by remember { mutableStateOf(Side.RED) }
     var gameStarted by remember { mutableStateOf(false) }
+    var confirmAction by remember { mutableStateOf<AiConfirmAction?>(null) }
 
     val state by viewModel.gameState.collectAsState()
     val selectedPiece by viewModel.selectedPiece.collectAsState()
     val legalMoves by viewModel.legalMoves.collectAsState()
     val isAiThinking by viewModel.isAiThinking.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+
+    confirmAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { confirmAction = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        when (action) {
+                            AiConfirmAction.FLIP -> viewModel.toggleBoardFlipped()
+                            AiConfirmAction.RESET -> viewModel.startGame(
+                                mode = GameMode.AI,
+                                difficulty = difficulty,
+                                flipped = state.isFlipped
+                            )
+                        }
+                        confirmAction = null
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmAction = null }) {
+                    Text("取消")
+                }
+            },
+            title = { Text(action.title) },
+            text = { Text(action.message) }
+        )
+    }
 
     if (gameStarted && state.status != GameStatus.PLAYING) {
         AlertDialog(
@@ -71,8 +104,7 @@ fun AiGameScreen(
                         viewModel.startGame(
                             mode = GameMode.AI,
                             difficulty = difficulty,
-                            flipped = humanSide == Side.BLACK,
-                            humanSide = humanSide
+                            flipped = state.isFlipped
                         )
                     }
                 ) {
@@ -99,10 +131,33 @@ fun AiGameScreen(
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
+                actions = {
+                    if (gameStarted) {
+                        FilledTonalButton(
+                            onClick = { confirmAction = AiConfirmAction.FLIP },
+                            enabled = !isAiThinking,
+                            modifier = Modifier.padding(end = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.SwapVert, contentDescription = null)
+                            Text("调转")
+                        }
+                        Button(
+                            onClick = { confirmAction = AiConfirmAction.RESET },
+                            enabled = !isAiThinking,
+                            modifier = Modifier.padding(end = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Text("重置")
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xAA2D1A0A),
                     titleContentColor = Color(0xFFFFE4A6),
-                    navigationIconContentColor = Color(0xFFFFE4A6)
+                    navigationIconContentColor = Color(0xFFFFE4A6),
+                    actionIconContentColor = Color(0xFFFFE4A6)
                 )
             )
         }
@@ -114,16 +169,12 @@ fun AiGameScreen(
                 .padding(padding)
         ) {
             if (!gameStarted) {
-                AiSetupSelector(
-                    selectedSide = humanSide,
-                    onSideChange = { humanSide = it },
+                DifficultySelector(
                     onSelectDifficulty = {
                         difficulty = it
                         viewModel.startGame(
                             mode = GameMode.AI,
-                            difficulty = it,
-                            flipped = humanSide == Side.BLACK,
-                            humanSide = humanSide
+                            difficulty = it
                         )
                         gameStarted = true
                     },
@@ -142,8 +193,8 @@ fun AiGameScreen(
                         isAiThinking = isAiThinking,
                         difficulty = difficulty,
                         onUndo = { viewModel.undoMove() },
-                        onDraw = { viewModel.agreeDraw(humanSide) },
-                        onResign = { viewModel.resign(humanSide) },
+                        onDraw = { viewModel.agreeDraw(Side.RED) },
+                        onResign = { viewModel.resign(Side.RED) },
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     )
 
@@ -166,9 +217,7 @@ fun AiGameScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AiSetupSelector(
-    selectedSide: Side,
-    onSideChange: (Side) -> Unit,
+private fun DifficultySelector(
     onSelectDifficulty: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -193,32 +242,12 @@ private fun AiSetupSelector(
             color = Color(0xFFFFE4A6)
         )
         Text(
-            text = "先选执棋，再选难度开局",
+            text = "选择难度开局",
             fontSize = 15.sp,
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            FilterChip(
-                selected = selectedSide == Side.RED,
-                onClick = { onSideChange(Side.RED) },
-                label = { Text("执红") },
-                modifier = Modifier.weight(1f)
-            )
-            FilterChip(
-                selected = selectedSide == Side.BLACK,
-                onClick = { onSideChange(Side.BLACK) },
-                label = { Text("执黑") },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         for (level in levels) {
             ElevatedCard(
@@ -262,6 +291,14 @@ private fun AiSetupSelector(
             }
         }
     }
+}
+
+private enum class AiConfirmAction(
+    val title: String,
+    val message: String
+) {
+    FLIP("确认调转红黑？", "棋盘方向会立即调转，当前棋局不会重置。"),
+    RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。")
 }
 
 private data class DifficultyLevel(

@@ -36,7 +36,6 @@ private val EDGE_COLOR = Color(0xFF24302F)
 private val GRID_COLOR = Color(0xFF263433)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
-private val SELECTED_COLOR = Color(0x80E8D07B)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
 private val MARKER_COLOR = Color(0xFF2D3C3A)
@@ -121,15 +120,13 @@ fun ChessBoard(
 
         if (selectedPiece != null) {
             drawPositionHighlight(
-                selectedPiece.row,
-                selectedPiece.col,
+                selectedPiece,
                 offsetX,
                 offsetY,
                 cellW,
                 cellH,
-                SELECTED_COLOR,
                 isFlipped,
-                ripplePhase
+                pulse
             )
         }
 
@@ -242,6 +239,36 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         val r = cellW * (0.018f + (i % 4) * 0.006f)
         drawCircle(Color.Black.copy(alpha = 0.05f), radius = r, center = Offset(x, y))
         drawCircle(Color.White.copy(alpha = 0.04f), radius = r * 0.55f, center = Offset(x - r * 0.25f, y - r * 0.25f))
+    }
+    val cracks = listOf(
+        listOf(0.10f to 0.20f, 0.18f to 0.24f, 0.25f to 0.22f, 0.34f to 0.28f),
+        listOf(0.72f to 0.12f, 0.68f to 0.20f, 0.74f to 0.27f, 0.70f to 0.36f),
+        listOf(0.18f to 0.74f, 0.28f to 0.70f, 0.36f to 0.76f),
+        listOf(0.58f to 0.63f, 0.64f to 0.70f, 0.73f to 0.68f, 0.80f to 0.77f)
+    )
+    for (crack in cracks) {
+        for (i in 0 until crack.lastIndex) {
+            val start = Offset(
+                innerTopLeft.x + innerSize.width * crack[i].first,
+                innerTopLeft.y + innerSize.height * crack[i].second
+            )
+            val end = Offset(
+                innerTopLeft.x + innerSize.width * crack[i + 1].first,
+                innerTopLeft.y + innerSize.height * crack[i + 1].second
+            )
+            drawLine(
+                color = Color.Black.copy(alpha = 0.18f),
+                start = Offset(start.x + 1f, start.y + 1f),
+                end = Offset(end.x + 1f, end.y + 1f),
+                strokeWidth = 1.7f
+            )
+            drawLine(
+                color = Color.White.copy(alpha = 0.10f),
+                start = Offset(start.x - 0.7f, start.y - 0.7f),
+                end = Offset(end.x - 0.7f, end.y - 0.7f),
+                strokeWidth = 1.0f
+            )
+        }
     }
     drawRoundRect(
         color = MARKER_COLOR.copy(alpha = 0.92f),
@@ -408,50 +435,48 @@ private fun DrawScope.drawMarker(row: Int, col: Int, offsetX: Float, offsetY: Fl
 
     for ((sx, sy) in corners) {
         if ((col == 0 && sx < 0) || (col == 8 && sx > 0)) continue
-        drawLine(
-            color = MARKER_COLOR,
+        drawEngravedLine(
             start = Offset(cx + sx * gap, cy + sy * gap),
             end = Offset(cx + sx * (gap + len), cy + sy * gap),
-            strokeWidth = strokeWidth
+            strokeWidth = strokeWidth,
+            color = MARKER_COLOR
         )
-        drawLine(
-            color = MARKER_COLOR,
+        drawEngravedLine(
             start = Offset(cx + sx * gap, cy + sy * gap),
             end = Offset(cx + sx * gap, cy + sy * (gap + len)),
-            strokeWidth = strokeWidth
+            strokeWidth = strokeWidth,
+            color = MARKER_COLOR
         )
     }
 }
 
 private fun DrawScope.drawPositionHighlight(
-    row: Int, col: Int,
+    piece: Piece,
     offsetX: Float, offsetY: Float,
     cellW: Float, cellH: Float,
-    color: Color,
     isFlipped: Boolean,
-    ripplePhase: Float
+    pulse: Float
 ) {
-    val displayRow = toDisplayRow(row, isFlipped)
-    val displayCol = toDisplayCol(col, isFlipped)
+    val displayRow = toDisplayRow(piece.row, isFlipped)
+    val displayCol = toDisplayCol(piece.col, isFlipped)
     val cx = offsetX + displayCol * cellW
     val cy = offsetY + displayRow * cellH
     val center = Offset(cx, cy)
-    drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.42f, center = center)
-    for (i in 0..2) {
-        val phase = (ripplePhase + i / 3f) % 1f
-        val alpha = (1f - phase) * 0.34f
-        drawCircle(
-            color = Color(0xFFEBD989).copy(alpha = alpha),
-            radius = cellW * (0.38f + phase * 0.42f),
-            center = center,
-            style = Stroke(width = 3.2f * (1f - phase).coerceAtLeast(0.25f))
-        )
-    }
+    val color = if (piece.side == Side.RED) RED_COLOR else BLACK_COLOR
+
+    drawCircle(color = color.copy(alpha = 0.18f), radius = cellW * 0.66f * pulse, center = center)
+    drawCircle(color = color.copy(alpha = 0.18f), radius = cellW * 0.5f, center = center)
     drawCircle(
-        color = Color(0xFFFFF0A6).copy(alpha = 0.62f),
-        radius = cellW * 0.45f,
+        color = color.copy(alpha = 0.72f),
+        radius = cellW * 0.53f,
         center = center,
-        style = Stroke(width = 2.4f)
+        style = Stroke(width = 4.4f)
+    )
+    drawCircle(
+        color = color,
+        radius = cellW * 0.4f * pulse,
+        center = center,
+        style = Stroke(width = 4.5f)
     )
 }
 

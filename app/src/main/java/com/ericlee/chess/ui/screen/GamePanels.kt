@@ -2,10 +2,10 @@ package com.ericlee.chess.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -76,6 +76,33 @@ fun LocalControlPanel(
 }
 
 @Composable
+fun PlayerControlPanel(
+    side: Side,
+    state: GameState,
+    statusMessage: String,
+    onUndo: (Side) -> Unit,
+    onDraw: (Side) -> Unit,
+    onResign: (Side) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GameInfoPanel(
+        state = state,
+        statusMessage = statusMessage,
+        metaText = "${side.displayName()} · 第 ${state.moveHistory.size / 2 + 1} 回合",
+        modifier = modifier
+    ) {
+        SideActionRow(
+            side = side,
+            canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == side,
+            canAct = state.status == GameStatus.PLAYING,
+            onUndo = { onUndo(side) },
+            onDraw = { onDraw(side) },
+            onResign = { onResign(side) }
+        )
+    }
+}
+
+@Composable
 fun AiControlPanel(
     state: GameState,
     statusMessage: String,
@@ -90,7 +117,7 @@ fun AiControlPanel(
         state = state,
         statusMessage = statusMessage,
         isAiThinking = isAiThinking,
-        metaText = "难度 $difficulty · 执${if (state.humanSide == Side.RED) "红" else "黑"}",
+        metaText = "难度 $difficulty",
         modifier = modifier
     ) {
         Row(
