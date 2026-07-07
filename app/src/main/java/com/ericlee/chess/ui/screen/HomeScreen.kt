@@ -15,6 +15,7 @@ import com.ericlee.chess.ui.theme.battlefieldTexture
 fun HomeScreen(
     onStartAiGame: () -> Unit,
     onStartLocalGame: () -> Unit,
+    onStartOnlineGame: () -> Unit,
     onStartEndgame: () -> Unit
 ) {
     Box(
@@ -58,6 +59,14 @@ fun HomeScreen(
                 text = "双人对战",
                 subtitle = "同设备轮流下棋",
                 onClick = onStartLocalGame
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            MenuButton(
+                text = "联机对战",
+                subtitle = "输入房间号匹配",
+                onClick = onStartOnlineGame
             )
 
             Spacer(modifier = Modifier.height(16.dp))

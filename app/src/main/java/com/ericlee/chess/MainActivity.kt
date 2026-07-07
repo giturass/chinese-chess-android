@@ -15,6 +15,7 @@ import com.ericlee.chess.ui.screen.AiGameScreen
 import com.ericlee.chess.ui.screen.EndgameScreen
 import com.ericlee.chess.ui.screen.HomeScreen
 import com.ericlee.chess.ui.screen.LocalGameScreen
+import com.ericlee.chess.ui.screen.OnlineGameScreen
 import com.ericlee.chess.ui.theme.ChineseChessTheme
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -56,6 +57,7 @@ fun ChineseChessApp() {
             HomeScreen(
                 onStartAiGame = { navController.navigate("ai") },
                 onStartLocalGame = { navController.navigate("local") },
+                onStartOnlineGame = { navController.navigate("online") },
                 onStartEndgame = { navController.navigate("endgame") }
             )
         }
@@ -67,6 +69,12 @@ fun ChineseChessApp() {
         }
         composable("local") {
             LocalGameScreen(
+                viewModel = gameViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable("online") {
+            OnlineGameScreen(
                 viewModel = gameViewModel,
                 onBack = { navController.popBackStack() }
             )

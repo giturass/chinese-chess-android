@@ -1,7 +1,7 @@
 package com.ericlee.chess.model
 
 enum class GameMode {
-    AI, LOCAL, ENDGAME
+    AI, LOCAL, ONLINE, ENDGAME
 }
 
 enum class GameStatus {

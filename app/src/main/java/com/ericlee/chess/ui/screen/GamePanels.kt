@@ -151,6 +151,48 @@ fun AiControlPanel(
 }
 
 @Composable
+fun OnlineControlPanel(
+    state: GameState,
+    statusMessage: String,
+    playerSide: Side,
+    connectionText: String,
+    onDraw: () -> Unit,
+    onResign: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GameInfoPanel(
+        state = state,
+        statusMessage = statusMessage,
+        accentSide = playerSide,
+        metaText = "${playerSide.displayName()} · $connectionText",
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(
+                onClick = onDraw,
+                enabled = state.status == GameStatus.PLAYING,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text("求和", fontSize = 13.sp)
+            }
+            OutlinedButton(
+                onClick = onResign,
+                enabled = state.status == GameStatus.PLAYING,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text("认输", fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
 private fun GameInfoPanel(
     state: GameState,
     statusMessage: String,

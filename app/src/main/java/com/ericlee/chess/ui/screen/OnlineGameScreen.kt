@@ -1,0 +1,269 @@
+package com.ericlee.chess.ui.screen
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ericlee.chess.model.GameStatus
+import com.ericlee.chess.model.Side
+import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.theme.battlefieldTexture
+import com.ericlee.chess.ui.theme.woodTexture
+import com.ericlee.chess.viewmodel.GameViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OnlineGameScreen(
+    viewModel: GameViewModel,
+    onBack: () -> Unit
+) {
+    val state by viewModel.gameState.collectAsState()
+    val selectedPiece by viewModel.selectedPiece.collectAsState()
+    val legalMoves by viewModel.legalMoves.collectAsState()
+    val statusMessage by viewModel.statusMessage.collectAsState()
+    val session by viewModel.onlineSession.collectAsState()
+
+    var roomId by rememberSaveable { mutableStateOf("") }
+    var confirmExit by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose { viewModel.disconnectOnline() }
+    }
+
+    if (confirmExit) {
+        AlertDialog(
+            onDismissRequest = { confirmExit = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmExit = false
+                        viewModel.disconnectOnline()
+                        onBack()
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmExit = false }) {
+                    Text("取消")
+                }
+            },
+            title = { Text("退出联机对战？") },
+            text = { Text("退出后当前设备会离开房间。") }
+        )
+    }
+
+    if (state.status != GameStatus.PLAYING && session.connected) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.resetOnlineGame() }
+                ) {
+                    Text("重新开局")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.disconnectOnline()
+                        onBack()
+                    }
+                ) {
+                    Text("返回首页")
+                }
+            },
+            title = { Text("棋局结束") },
+            text = { Text(statusMessage) }
+        )
+    }
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            TopAppBar(
+                title = { Text("联机对战") },
+                navigationIcon = {
+                    IconButton(onClick = { if (session.connected) confirmExit = true else onBack() }) {
+                        Icon(Icons.Default.ArrowBack, "返回")
+                    }
+                },
+                actions = {
+                    if (session.roomId.isNotBlank()) {
+                        FilledTonalButton(
+                            onClick = { viewModel.startOnlineGame(session.roomId) },
+                            modifier = Modifier.padding(end = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Text("重连")
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xAA2D1A0A),
+                    titleContentColor = Color(0xFFFFE4A6),
+                    navigationIconContentColor = Color(0xFFFFE4A6),
+                    actionIconContentColor = Color(0xFFFFE4A6)
+                )
+            )
+        }
+    ) { padding ->
+        if (!session.connected) {
+            OnlineJoinPanel(
+                roomId = roomId,
+                connecting = session.connecting,
+                message = session.message,
+                onRoomIdChange = { roomId = it },
+                onJoin = { viewModel.startOnlineGame(roomId) },
+                modifier = Modifier.padding(padding)
+            )
+        } else {
+            val playerSide = session.side ?: Side.RED
+            val topSide = playerSide.opposite()
+            val connectionText = if (session.playerCount < 2) "等待对手" else session.message
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .woodTexture()
+                    .padding(padding)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    GameStatusBanner(
+                        state = state,
+                        statusMessage = "对手：${topSide.displayName()}",
+                        metaText = "房间 ${session.roomId}",
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    ChessBoard(
+                        board = state.board,
+                        currentSide = state.currentSide,
+                        selectedPiece = selectedPiece,
+                        legalMoves = legalMoves,
+                        lastMove = state.lastMove,
+                        isFlipped = state.isFlipped,
+                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    OnlineControlPanel(
+                        state = state,
+                        statusMessage = statusMessage,
+                        playerSide = playerSide,
+                        connectionText = connectionText,
+                        onDraw = { viewModel.agreeDraw(playerSide) },
+                        onResign = { viewModel.resign(playerSide) },
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnlineJoinPanel(
+    roomId: String,
+    connecting: Boolean,
+    message: String,
+    onRoomIdChange: (String) -> Unit,
+    onJoin: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .battlefieldTexture()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "输入房间号",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFFFE4A6)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedTextField(
+                value = roomId,
+                onValueChange = { value ->
+                    onRoomIdChange(value.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(24))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("房间号") },
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onJoin,
+                enabled = !connecting && roomId.isNotBlank(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+            ) {
+                Text(if (connecting) "连接中" else "进入房间")
+            }
+            if (message.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = message,
+                    color = Color(0xFFFFF0D4).copy(alpha = 0.82f),
+                    fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
