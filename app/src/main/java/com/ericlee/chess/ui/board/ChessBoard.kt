@@ -28,17 +28,17 @@ import com.ericlee.chess.model.*
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val STONE_BASE = Color(0xFFB8B2A6)
-private val STONE_LIGHT = Color(0xFFE6DFD0)
-private val STONE_MID = Color(0xFFC8BFAE)
-private val STONE_DARK = Color(0xFF5E574E)
-private val EDGE_COLOR = Color(0xFF463F37)
-private val GRID_COLOR = Color(0xFF2D2823)
+private val WOOD_BASE = Color(0xFFC47A34)
+private val WOOD_LIGHT = Color(0xFFE7B96B)
+private val WOOD_MID = Color(0xFFA95D24)
+private val WOOD_DARK = Color(0xFF5A2B10)
+private val EDGE_COLOR = Color(0xFF2D1609)
+private val GRID_COLOR = Color(0xFF3D1E0C)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
-private val MARKER_COLOR = Color(0xFF4E453B)
+private val MARKER_COLOR = Color(0xFF5C2D10)
 private val PIECE_BG = Color(0xFFF6D495)
 
 @Composable
@@ -107,7 +107,7 @@ fun ChessBoard(
 
         drawGrid(offsetX, offsetY, cellW, cellH)
         drawPalace(offsetX, offsetY, cellW, cellH)
-        drawStoneRiverText(offsetX, offsetY, cellW, cellH)
+        drawWoodRiverText(offsetX, offsetY, cellW, cellH)
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         if (lastMove != null) {
@@ -185,20 +185,24 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     val innerSize = Size(cellW * 8.4f, cellH * 9.4f)
 
     drawRoundRect(
-        color = Color.Black.copy(alpha = 0.28f),
+        color = Color.Black.copy(alpha = 0.34f),
         topLeft = Offset(outerTopLeft.x + cellW * 0.08f, outerTopLeft.y + cellH * 0.1f),
         size = outerSize,
         cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
     )
     drawRoundRect(
-        color = EDGE_COLOR,
+        brush = Brush.linearGradient(
+            colors = listOf(EDGE_COLOR, Color(0xFF6E3715), Color(0xFF211006)),
+            start = outerTopLeft,
+            end = Offset(outerTopLeft.x + outerSize.width, outerTopLeft.y + outerSize.height)
+        ),
         topLeft = outerTopLeft,
         size = outerSize,
         cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
     )
     drawRoundRect(
         brush = Brush.linearGradient(
-            colors = listOf(STONE_LIGHT, STONE_MID, STONE_BASE, STONE_DARK),
+            colors = listOf(Color(0xFF8F4D1D), Color(0xFFC9823C), Color(0xFF5E2B0F)),
             start = outerTopLeft,
             end = Offset(outerTopLeft.x + outerSize.width, outerTopLeft.y + outerSize.height)
         ),
@@ -206,37 +210,14 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = Size(outerSize.width - cellW * 0.14f, outerSize.height - cellH * 0.14f),
         cornerRadius = CornerRadius(cellW * 0.12f, cellW * 0.12f)
     )
-    val chipCenters = listOf(
-        Offset(outerTopLeft.x + outerSize.width * 0.16f, outerTopLeft.y + cellH * 0.08f),
-        Offset(outerTopLeft.x + outerSize.width * 0.46f, outerTopLeft.y + cellH * 0.04f),
-        Offset(outerTopLeft.x + outerSize.width * 0.82f, outerTopLeft.y + cellH * 0.1f),
-        Offset(outerTopLeft.x + outerSize.width * 0.08f, outerTopLeft.y + outerSize.height * 0.28f),
-        Offset(outerTopLeft.x + outerSize.width * 0.93f, outerTopLeft.y + outerSize.height * 0.36f),
-        Offset(outerTopLeft.x + outerSize.width * 0.05f, outerTopLeft.y + outerSize.height * 0.72f),
-        Offset(outerTopLeft.x + outerSize.width * 0.96f, outerTopLeft.y + outerSize.height * 0.78f),
-        Offset(outerTopLeft.x + outerSize.width * 0.31f, outerTopLeft.y + outerSize.height * 0.96f),
-        Offset(outerTopLeft.x + outerSize.width * 0.68f, outerTopLeft.y + outerSize.height * 0.97f)
-    )
-    for ((index, center) in chipCenters.withIndex()) {
-        val radius = cellW * (0.045f + (index % 3) * 0.018f)
-        drawCircle(
-            color = Color.Black.copy(alpha = 0.20f),
-            radius = radius,
-            center = center
-        )
-        drawCircle(
-            color = Color.White.copy(alpha = 0.14f),
-            radius = radius * 0.42f,
-            center = Offset(center.x - radius * 0.28f, center.y - radius * 0.24f)
-        )
-    }
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFF0E6D3),
-                Color(0xFFD0C4B0),
-                Color(0xFFB6AB99),
-                Color(0xFFDCCFB8)
+                WOOD_LIGHT,
+                WOOD_BASE,
+                WOOD_MID,
+                Color(0xFFD8994D),
+                WOOD_DARK
             ),
             start = Offset(innerTopLeft.x, innerTopLeft.y),
             end = Offset(innerTopLeft.x + innerSize.width, innerTopLeft.y + innerSize.height)
@@ -245,93 +226,72 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = innerSize,
         cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f)
     )
-    for (i in 0..22) {
-        val y = innerTopLeft.y + innerSize.height * (i + 0.35f) / 23f
-        val xDrift = if (i % 2 == 0) cellW * 0.22f else -cellW * 0.14f
+
+    val plankWidth = innerSize.width / 4f
+    for (i in 1..3) {
+        val x = innerTopLeft.x + plankWidth * i
         drawLine(
-            color = Color.White.copy(alpha = 0.06f),
-            start = Offset(innerTopLeft.x + cellW * 0.15f + xDrift, y),
-            end = Offset(innerTopLeft.x + innerSize.width - cellW * 0.16f - xDrift, y + cellH * 0.08f),
-            strokeWidth = 1.1f
+            color = Color.Black.copy(alpha = 0.25f),
+            start = Offset(x, innerTopLeft.y + cellH * 0.05f),
+            end = Offset(x, innerTopLeft.y + innerSize.height - cellH * 0.05f),
+            strokeWidth = 2.6f
         )
-        if (i % 3 == 0) {
-            drawLine(
-                color = Color.Black.copy(alpha = 0.08f),
-                start = Offset(innerTopLeft.x + cellW * 0.2f, y + cellH * 0.08f),
-                end = Offset(innerTopLeft.x + innerSize.width - cellW * 0.2f, y + cellH * 0.16f),
-                strokeWidth = 1.4f
-            )
-        }
-    }
-    for (i in 0..72) {
-        val x = innerTopLeft.x + innerSize.width * ((i * 37 % 100) / 100f)
-        val y = innerTopLeft.y + innerSize.height * ((i * 53 % 100) / 100f)
-        val w = cellW * (0.035f + (i % 6) * 0.014f)
-        val h = cellH * (0.018f + (i % 4) * 0.012f)
-        drawOval(
-            color = if (i % 2 == 0) Color.Black.copy(alpha = 0.075f) else Color.White.copy(alpha = 0.07f),
-            topLeft = Offset(x - w / 2f, y - h / 2f),
-            size = Size(w, h)
-        )
-    }
-    for (i in 0..16) {
-        val x = innerTopLeft.x + innerSize.width * ((i * 61 % 100) / 100f)
-        val y = innerTopLeft.y + innerSize.height * ((i * 43 % 100) / 100f)
         drawLine(
-            color = Color.White.copy(alpha = 0.08f),
-            start = Offset(x, y),
-            end = Offset(x + cellW * (0.16f + (i % 4) * 0.05f), y + cellH * (0.02f + (i % 2) * 0.04f)),
+            color = Color(0xFFFFD48A).copy(alpha = 0.16f),
+            start = Offset(x + 2f, innerTopLeft.y + cellH * 0.08f),
+            end = Offset(x + 2f, innerTopLeft.y + innerSize.height - cellH * 0.08f),
             strokeWidth = 1.2f
         )
     }
-    drawStoneVein(
-        points = listOf(0.06f to 0.12f, 0.22f to 0.18f, 0.37f to 0.15f, 0.55f to 0.24f, 0.80f to 0.21f),
-        topLeft = innerTopLeft,
-        size = innerSize,
-        width = 2.2f
+
+    for (i in 0..72) {
+        val baseX = innerTopLeft.x + innerSize.width * (i + 0.25f) / 73f
+        val phase = i * 0.57f
+        val alpha = 0.11f + (i % 4) * 0.018f
+        drawWoodGrainLine(
+            baseX = baseX,
+            top = innerTopLeft.y + cellH * 0.08f,
+            bottom = innerTopLeft.y + innerSize.height - cellH * 0.08f,
+            amplitude = cellW * (0.035f + (i % 5) * 0.014f),
+            phase = phase,
+            color = if (i % 3 == 0) Color.Black.copy(alpha = alpha) else Color(0xFFFFD487).copy(alpha = alpha),
+            strokeWidth = 0.9f + (i % 3) * 0.35f
+        )
+    }
+
+    val knots = listOf(
+        Offset(innerTopLeft.x + innerSize.width * 0.20f, innerTopLeft.y + innerSize.height * 0.22f),
+        Offset(innerTopLeft.x + innerSize.width * 0.62f, innerTopLeft.y + innerSize.height * 0.42f),
+        Offset(innerTopLeft.x + innerSize.width * 0.38f, innerTopLeft.y + innerSize.height * 0.76f),
+        Offset(innerTopLeft.x + innerSize.width * 0.82f, innerTopLeft.y + innerSize.height * 0.70f)
     )
-    drawStoneVein(
-        points = listOf(0.10f to 0.48f, 0.28f to 0.43f, 0.46f to 0.50f, 0.62f to 0.47f, 0.90f to 0.56f),
-        topLeft = innerTopLeft,
-        size = innerSize,
-        width = 1.8f
-    )
-    drawStoneVein(
-        points = listOf(0.18f to 0.90f, 0.34f to 0.80f, 0.52f to 0.85f, 0.74f to 0.76f),
-        topLeft = innerTopLeft,
-        size = innerSize,
-        width = 2.0f
-    )
-    val cracks = listOf(
-        listOf(0.10f to 0.20f, 0.18f to 0.24f, 0.25f to 0.22f, 0.34f to 0.28f),
-        listOf(0.72f to 0.12f, 0.68f to 0.20f, 0.74f to 0.27f, 0.70f to 0.36f),
-        listOf(0.18f to 0.74f, 0.28f to 0.70f, 0.36f to 0.76f),
-        listOf(0.58f to 0.63f, 0.64f to 0.70f, 0.73f to 0.68f, 0.80f to 0.77f)
-    )
-    for (crack in cracks) {
-        for (i in 0 until crack.lastIndex) {
-            val start = Offset(
-                innerTopLeft.x + innerSize.width * crack[i].first,
-                innerTopLeft.y + innerSize.height * crack[i].second
-            )
-            val end = Offset(
-                innerTopLeft.x + innerSize.width * crack[i + 1].first,
-                innerTopLeft.y + innerSize.height * crack[i + 1].second
-            )
-            drawLine(
-                color = Color.Black.copy(alpha = 0.18f),
-                start = Offset(start.x + 1f, start.y + 1f),
-                end = Offset(end.x + 1f, end.y + 1f),
-                strokeWidth = 1.7f
-            )
-            drawLine(
-                color = Color.White.copy(alpha = 0.10f),
-                start = Offset(start.x - 0.7f, start.y - 0.7f),
-                end = Offset(end.x - 0.7f, end.y - 0.7f),
-                strokeWidth = 1.0f
+    for ((index, center) in knots.withIndex()) {
+        val w = cellW * (0.42f + (index % 2) * 0.12f)
+        val h = cellH * (0.21f + (index % 3) * 0.05f)
+        drawOval(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFF3D1B09).copy(alpha = 0.36f),
+                    Color(0xFF7B3B13).copy(alpha = 0.24f),
+                    Color.Transparent
+                ),
+                center = center,
+                radius = w
+            ),
+            topLeft = Offset(center.x - w, center.y - h),
+            size = Size(w * 2f, h * 2f)
+        )
+        for (ring in 0..2) {
+            val scale = 0.48f + ring * 0.22f
+            drawOval(
+                color = Color(0xFF2E1306).copy(alpha = 0.22f - ring * 0.04f),
+                topLeft = Offset(center.x - w * scale, center.y - h * scale),
+                size = Size(w * scale * 2f, h * scale * 2f),
+                style = Stroke(width = 1.2f)
             )
         }
     }
+
     drawRoundRect(
         color = MARKER_COLOR.copy(alpha = 0.92f),
         topLeft = innerTopLeft,
@@ -340,7 +300,7 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         style = Stroke(width = 3f)
     )
     drawRoundRect(
-        color = Color.White.copy(alpha = 0.16f),
+        color = Color(0xFFFFD48A).copy(alpha = 0.22f),
         topLeft = Offset(outerTopLeft.x + cellW * 0.12f, outerTopLeft.y + cellH * 0.12f),
         size = Size(outerSize.width - cellW * 0.24f, outerSize.height - cellH * 0.24f),
         cornerRadius = CornerRadius(cellW * 0.11f, cellW * 0.11f),
@@ -355,30 +315,28 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     )
 }
 
-private fun DrawScope.drawStoneVein(
-    points: List<Pair<Float, Float>>,
-    topLeft: Offset,
-    size: Size,
-    width: Float
+private fun DrawScope.drawWoodGrainLine(
+    baseX: Float,
+    top: Float,
+    bottom: Float,
+    amplitude: Float,
+    phase: Float,
+    color: Color,
+    strokeWidth: Float
 ) {
-    if (points.size < 2) return
     val path = Path().apply {
-        val first = points.first()
-        moveTo(topLeft.x + size.width * first.first, topLeft.y + size.height * first.second)
-        for (point in points.drop(1)) {
-            lineTo(topLeft.x + size.width * point.first, topLeft.y + size.height * point.second)
+        moveTo(baseX, top)
+        val segments = 18
+        for (index in 1..segments) {
+            val t = index / segments.toFloat()
+            val y = top + (bottom - top) * t
+            val x = baseX +
+                kotlin.math.sin(t * 10.5f + phase) * amplitude +
+                kotlin.math.sin(t * 24f + phase * 0.7f) * amplitude * 0.35f
+            lineTo(x, y)
         }
     }
-    drawPath(
-        path = path,
-        color = Color.White.copy(alpha = 0.12f),
-        style = Stroke(width = width + 1.1f)
-    )
-    drawPath(
-        path = path,
-        color = Color.Black.copy(alpha = 0.18f),
-        style = Stroke(width = width)
-    )
+    drawPath(path = path, color = color, style = Stroke(width = strokeWidth))
 }
 
 private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
@@ -438,7 +396,7 @@ private fun DrawScope.drawEngravedLine(
         strokeWidth = strokeWidth + 1.2f
     )
     drawLine(
-        color = Color.White.copy(alpha = 0.24f),
+        color = Color(0xFFFFD48A).copy(alpha = 0.26f),
         start = Offset(start.x - 0.9f, start.y - 0.9f),
         end = Offset(end.x - 0.9f, end.y - 0.9f),
         strokeWidth = strokeWidth
@@ -446,7 +404,7 @@ private fun DrawScope.drawEngravedLine(
     drawLine(color = color, start = start, end = end, strokeWidth = strokeWidth + 0.4f)
 }
 
-private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
+private fun DrawScope.drawWoodRiverText(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     val top = offsetY + 4f * cellH
     val bottom = offsetY + 5f * cellH
     val y = (top + bottom) / 2f
@@ -459,7 +417,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
     for ((_, topLeft) in plaques) {
         drawRoundRect(
             brush = Brush.linearGradient(
-                colors = listOf(Color(0xFFD7CEBC), Color(0xFFB6AC98), Color(0xFF887D6C)),
+                colors = listOf(Color(0xFFE4A85B), Color(0xFF9E5622), Color(0xFF4D220B)),
                 start = topLeft,
                 end = Offset(topLeft.x + plaqueSize.width, topLeft.y + plaqueSize.height)
             ),
@@ -468,14 +426,14 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
             cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f)
         )
         drawRoundRect(
-            color = Color.White.copy(alpha = 0.18f),
+            color = Color(0xFFFFD48A).copy(alpha = 0.22f),
             topLeft = Offset(topLeft.x + 1.2f, topLeft.y + 1.2f),
             size = plaqueSize,
             cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f),
             style = Stroke(width = 1.4f)
         )
         drawRoundRect(
-            color = Color.Black.copy(alpha = 0.24f),
+            color = Color(0xFF2B1205).copy(alpha = 0.52f),
             topLeft = topLeft,
             size = plaqueSize,
             cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f),
@@ -485,7 +443,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
 
     drawContext.canvas.nativeCanvas.apply {
         val highlightPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#EFE6D2")
+            color = android.graphics.Color.parseColor("#F6CA80")
             textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
@@ -494,7 +452,7 @@ private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: 
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
         }
         val carvedPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#4A4034")
+            color = android.graphics.Color.parseColor("#351506")
             textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true

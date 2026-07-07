@@ -39,11 +39,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
+import com.ericlee.chess.model.GameState
 import com.ericlee.chess.model.GameStatus
+import com.ericlee.chess.model.Move
+import com.ericlee.chess.model.Piece
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.woodTexture
@@ -181,36 +186,80 @@ fun AiGameScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    AiControlPanel(
-                        state = state,
-                        statusMessage = statusMessage,
-                        isAiThinking = isAiThinking,
-                        difficulty = difficulty,
-                        onUndo = { viewModel.undoMove() },
-                        onDraw = { viewModel.agreeDraw(Side.RED) },
-                        onResign = { viewModel.resign(Side.RED) },
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    ChessBoard(
-                        board = state.board,
-                        currentSide = state.currentSide,
-                        selectedPiece = selectedPiece,
-                        legalMoves = legalMoves,
-                        lastMove = state.lastMove,
-                        isFlipped = state.isFlipped,
-                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
-                    )
-                }
+                AiGameContent(
+                    state = state,
+                    selectedPiece = selectedPiece,
+                    legalMoves = legalMoves,
+                    statusMessage = statusMessage,
+                    isAiThinking = isAiThinking,
+                    difficulty = difficulty,
+                    onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
+                    onUndo = { viewModel.undoMove() },
+                    onDraw = { viewModel.agreeDraw(Side.RED) },
+                    onResign = { viewModel.resign(Side.RED) }
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun AiGameContent(
+    state: GameState,
+    selectedPiece: Piece?,
+    legalMoves: List<Move>,
+    statusMessage: String,
+    isAiThinking: Boolean,
+    difficulty: Int,
+    onPositionClick: (Int, Int) -> Unit,
+    onUndo: () -> Unit,
+    onDraw: () -> Unit,
+    onResign: () -> Unit
+) {
+    Layout(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        content = {
+            ChessBoard(
+                board = state.board,
+                currentSide = state.currentSide,
+                selectedPiece = selectedPiece,
+                legalMoves = legalMoves,
+                lastMove = state.lastMove,
+                isFlipped = state.isFlipped,
+                onPositionClick = onPositionClick,
+                modifier = Modifier.layoutId("board")
+            )
+            AiControlPanel(
+                state = state,
+                statusMessage = statusMessage,
+                isAiThinking = isAiThinking,
+                difficulty = difficulty,
+                onUndo = onUndo,
+                onDraw = onDraw,
+                onResign = onResign,
+                modifier = Modifier
+                    .layoutId("panel")
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+            )
+        }
+    ) { measurables, constraints ->
+        val gap = 4.dp.roundToPx()
+        val looseConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+        val panelPlaceable = measurables
+            .first { it.layoutId == "panel" }
+            .measure(looseConstraints)
+        val boardHeight = (constraints.maxHeight - panelPlaceable.height - gap).coerceAtLeast(0)
+        val boardPlaceable = measurables
+            .first { it.layoutId == "board" }
+            .measure(looseConstraints.copy(maxHeight = boardHeight))
+        val boardY = panelPlaceable.height + gap
+        val panelY = boardY + boardPlaceable.height + gap
+
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            boardPlaceable.place((constraints.maxWidth - boardPlaceable.width) / 2, boardY)
+            panelPlaceable.place((constraints.maxWidth - panelPlaceable.width) / 2, panelY)
         }
     }
 }

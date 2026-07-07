@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ericlee.chess.ui.theme.woodTexture
+import com.ericlee.chess.ui.theme.battlefieldTexture
 
 @Composable
 fun HomeScreen(
@@ -20,7 +20,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .woodTexture()
+            .battlefieldTexture()
     ) {
         Column(
             modifier = Modifier
