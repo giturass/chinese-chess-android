@@ -28,17 +28,17 @@ import com.ericlee.chess.model.*
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val STONE_BASE = Color(0xFFB8B0A0)
-private val STONE_LIGHT = Color(0xFFE3D9C7)
-private val STONE_MID = Color(0xFFC6BBA7)
-private val STONE_DARK = Color(0xFF62594C)
-private val EDGE_COLOR = Color(0xFF4D4438)
-private val GRID_COLOR = Color(0xFF51483D)
+private val STONE_BASE = Color(0xFFC8C0B0)
+private val STONE_LIGHT = Color(0xFFF0E7D4)
+private val STONE_MID = Color(0xFFD2C7B5)
+private val STONE_DARK = Color(0xFF766B5C)
+private val EDGE_COLOR = Color(0xFF51483E)
+private val GRID_COLOR = Color(0xFF3A332C)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
-private val MARKER_COLOR = Color(0xFF625548)
+private val MARKER_COLOR = Color(0xFF4E453B)
 private val PIECE_BG = Color(0xFFF6D495)
 
 @Composable
@@ -185,6 +185,12 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     val innerSize = Size(cellW * 8.4f, cellH * 9.4f)
 
     drawRoundRect(
+        color = Color.Black.copy(alpha = 0.28f),
+        topLeft = Offset(outerTopLeft.x + cellW * 0.08f, outerTopLeft.y + cellH * 0.1f),
+        size = outerSize,
+        cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
+    )
+    drawRoundRect(
         color = EDGE_COLOR,
         topLeft = outerTopLeft,
         size = outerSize,
@@ -200,13 +206,37 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = Size(outerSize.width - cellW * 0.14f, outerSize.height - cellH * 0.14f),
         cornerRadius = CornerRadius(cellW * 0.12f, cellW * 0.12f)
     )
+    val chipCenters = listOf(
+        Offset(outerTopLeft.x + outerSize.width * 0.16f, outerTopLeft.y + cellH * 0.08f),
+        Offset(outerTopLeft.x + outerSize.width * 0.46f, outerTopLeft.y + cellH * 0.04f),
+        Offset(outerTopLeft.x + outerSize.width * 0.82f, outerTopLeft.y + cellH * 0.1f),
+        Offset(outerTopLeft.x + outerSize.width * 0.08f, outerTopLeft.y + outerSize.height * 0.28f),
+        Offset(outerTopLeft.x + outerSize.width * 0.93f, outerTopLeft.y + outerSize.height * 0.36f),
+        Offset(outerTopLeft.x + outerSize.width * 0.05f, outerTopLeft.y + outerSize.height * 0.72f),
+        Offset(outerTopLeft.x + outerSize.width * 0.96f, outerTopLeft.y + outerSize.height * 0.78f),
+        Offset(outerTopLeft.x + outerSize.width * 0.31f, outerTopLeft.y + outerSize.height * 0.96f),
+        Offset(outerTopLeft.x + outerSize.width * 0.68f, outerTopLeft.y + outerSize.height * 0.97f)
+    )
+    for ((index, center) in chipCenters.withIndex()) {
+        val radius = cellW * (0.045f + (index % 3) * 0.018f)
+        drawCircle(
+            color = Color.Black.copy(alpha = 0.20f),
+            radius = radius,
+            center = center
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.14f),
+            radius = radius * 0.42f,
+            center = Offset(center.x - radius * 0.28f, center.y - radius * 0.24f)
+        )
+    }
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color(0xFFE7DDCA),
-                Color(0xFFCBBFA9),
-                Color(0xFFAFA490),
-                Color(0xFFD4C8B3)
+                Color(0xFFF0E6D3),
+                Color(0xFFD0C4B0),
+                Color(0xFFB6AB99),
+                Color(0xFFDCCFB8)
             ),
             start = Offset(innerTopLeft.x, innerTopLeft.y),
             end = Offset(innerTopLeft.x + innerSize.width, innerTopLeft.y + innerSize.height)
@@ -236,9 +266,19 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     for (i in 0..34) {
         val x = innerTopLeft.x + innerSize.width * ((i * 37 % 100) / 100f)
         val y = innerTopLeft.y + innerSize.height * ((i * 53 % 100) / 100f)
-        val r = cellW * (0.018f + (i % 4) * 0.006f)
-        drawCircle(Color.Black.copy(alpha = 0.05f), radius = r, center = Offset(x, y))
-        drawCircle(Color.White.copy(alpha = 0.04f), radius = r * 0.55f, center = Offset(x - r * 0.25f, y - r * 0.25f))
+        val r = cellW * (0.02f + (i % 5) * 0.008f)
+        drawCircle(Color.Black.copy(alpha = 0.09f), radius = r, center = Offset(x, y))
+        drawCircle(Color.White.copy(alpha = 0.08f), radius = r * 0.5f, center = Offset(x - r * 0.25f, y - r * 0.25f))
+    }
+    for (i in 0..16) {
+        val x = innerTopLeft.x + innerSize.width * ((i * 61 % 100) / 100f)
+        val y = innerTopLeft.y + innerSize.height * ((i * 43 % 100) / 100f)
+        drawLine(
+            color = Color.White.copy(alpha = 0.08f),
+            start = Offset(x, y),
+            end = Offset(x + cellW * (0.16f + (i % 4) * 0.05f), y + cellH * (0.02f + (i % 2) * 0.04f)),
+            strokeWidth = 1.2f
+        )
     }
     val cracks = listOf(
         listOf(0.10f to 0.20f, 0.18f to 0.24f, 0.25f to 0.22f, 0.34f to 0.28f),
@@ -344,18 +384,18 @@ private fun DrawScope.drawEngravedLine(
     color: Color = GRID_COLOR
 ) {
     drawLine(
-        color = Color.White.copy(alpha = 0.22f),
-        start = Offset(start.x - 0.8f, start.y - 0.8f),
-        end = Offset(end.x - 0.8f, end.y - 0.8f),
-        strokeWidth = strokeWidth
+        color = Color.Black.copy(alpha = 0.30f),
+        start = Offset(start.x + 1.2f, start.y + 1.2f),
+        end = Offset(end.x + 1.2f, end.y + 1.2f),
+        strokeWidth = strokeWidth + 1.2f
     )
     drawLine(
-        color = Color.Black.copy(alpha = 0.25f),
-        start = Offset(start.x + 1.0f, start.y + 1.0f),
-        end = Offset(end.x + 1.0f, end.y + 1.0f),
+        color = Color.White.copy(alpha = 0.24f),
+        start = Offset(start.x - 0.9f, start.y - 0.9f),
+        end = Offset(end.x - 0.9f, end.y - 0.9f),
         strokeWidth = strokeWidth
     )
-    drawLine(color = color, start = start, end = end, strokeWidth = strokeWidth)
+    drawLine(color = color, start = start, end = end, strokeWidth = strokeWidth + 0.4f)
 }
 
 private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {

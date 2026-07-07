@@ -56,6 +56,7 @@ fun LocalControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = null,
+        showHistory = false,
         modifier = modifier
     ) {
         SideActionRow(
@@ -92,6 +93,7 @@ fun PlayerControlPanel(
         statusMessage = statusMessage,
         accentSide = side,
         metaText = "${side.displayName()} · 第 ${state.moveHistory.size / 2 + 1} 回合",
+        showHistory = false,
         modifier = modifier
     ) {
         SideActionRow(
@@ -221,10 +223,9 @@ private fun GameInfoPanel(
 
             actions()
 
-            if (showHistory) {
+            if (showHistory && state.moveHistory.isNotEmpty()) {
                 TextButton(
                     onClick = { historyExpanded = !historyExpanded },
-                    enabled = state.moveHistory.isNotEmpty(),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = detailColor)
                 ) {
