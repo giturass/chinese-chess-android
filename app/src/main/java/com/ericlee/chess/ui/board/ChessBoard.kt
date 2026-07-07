@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
+import kotlin.math.roundToInt
 
 private val BOARD_COLOR = Color(0xFFDEB887)
 private val GRID_COLOR = Color(0xFF3E1F00)
@@ -42,12 +43,12 @@ fun ChessBoard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(9f / 10f)
-            .pointerInput(Unit) {
+            .pointerInput(isFlipped, onPositionClick) {
                 detectTapGestures { offset ->
                     val cellW = size.width / 10f
                     val cellH = size.height / 11f
-                    val displayCol = ((offset.x - cellW / 2) / cellW).toInt()
-                    val displayRow = ((offset.y - cellH) / cellH).toInt()
+                    val displayCol = ((offset.x - cellW / 2) / cellW).roundToInt()
+                    val displayRow = ((offset.y - cellH) / cellH).roundToInt()
                     val row = toBoardRow(displayRow, isFlipped)
                     val col = toBoardCol(displayCol, isFlipped)
                     if (row in 0..9 && col in 0..8) {
