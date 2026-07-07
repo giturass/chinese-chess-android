@@ -31,19 +31,32 @@ class GameViewModel : ViewModel() {
     private var engine: ChessEngine? = null
     private var gameVersion = 0
 
-    fun startGame(mode: GameMode, difficulty: Int = 3, flipped: Boolean = false) {
+    fun startGame(
+        mode: GameMode,
+        difficulty: Int = 3,
+        flipped: Boolean = false,
+        humanSide: Side = Side.RED
+    ) {
         gameVersion++
-        _gameState.value = GameState(mode = mode, aiDifficulty = difficulty, isFlipped = flipped)
+        _gameState.value = GameState(
+            mode = mode,
+            aiDifficulty = difficulty,
+            isFlipped = flipped,
+            humanSide = humanSide
+        )
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
         _statusMessage.value = when (mode) {
-            GameMode.AI -> "红方先手，请出棋"
+            GameMode.AI -> if (humanSide == Side.RED) "红方先手，请出棋" else "红方先手，AI 先行"
             GameMode.LOCAL -> "红方先手，请出棋"
             GameMode.ENDGAME -> "残局挑战"
         }
         if (mode == GameMode.AI) {
-            engine = ChessEngine(Side.BLACK)
+            engine = ChessEngine(humanSide.opposite())
+            if (humanSide == Side.BLACK) {
+                triggerAiMove()
+            }
         }
     }
 
@@ -66,8 +79,7 @@ class GameViewModel : ViewModel() {
         if (state.status != GameStatus.PLAYING) return
         if (_isAiThinking.value) return
 
-        // In AI mode, only allow clicks when it's human's turn (RED)
-        if (state.mode == GameMode.AI && state.currentSide != Side.RED) return
+        if (state.mode == GameMode.AI && state.currentSide != state.humanSide) return
 
         val clickedPiece = state.board.getPiece(row, col)
 
@@ -96,7 +108,10 @@ class GameViewModel : ViewModel() {
 
         updateStatusMessage(newState)
 
-        if (newState.status == GameStatus.PLAYING && newState.mode == GameMode.AI && newState.currentSide == Side.BLACK) {
+        if (newState.status == GameStatus.PLAYING &&
+            newState.mode == GameMode.AI &&
+            newState.currentSide != newState.humanSide
+        ) {
             triggerAiMove()
         }
     }
@@ -107,6 +122,7 @@ class GameViewModel : ViewModel() {
         val boardSnapshot = state.board.copy()
         val depth = state.aiDifficulty
         val version = gameVersion
+        val aiSide = state.humanSide.opposite()
 
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
@@ -115,7 +131,7 @@ class GameViewModel : ViewModel() {
 
             if (version != gameVersion) return@launch
 
-            if (move != null && _gameState.value.currentSide == Side.BLACK) {
+            if (move != null && _gameState.value.currentSide == aiSide) {
                 val newState = _gameState.value.makeMove(move)
                 _gameState.value = newState
                 updateStatusMessage(newState)
@@ -150,7 +166,7 @@ class GameViewModel : ViewModel() {
         if (state.mode == GameMode.AI) {
             // Undo both AI and human move
             var s = state.undoLastMove()
-            if (s.moveHistory.isNotEmpty() && s.currentSide == Side.BLACK) {
+            if (s.moveHistory.isNotEmpty() && s.currentSide != state.humanSide) {
                 s = s.undoLastMove()
             }
             _gameState.value = s
@@ -163,13 +179,6 @@ class GameViewModel : ViewModel() {
         updateStatusMessage(_gameState.value)
     }
 
-    fun toggleBoardFlipped() {
-        val state = _gameState.value
-        _gameState.value = state.copy(isFlipped = !state.isFlipped)
-        _selectedPiece.value = null
-        _legalMoves.value = emptyList()
-    }
-
     fun resign(side: Side? = null) {
         gameVersion++
         _isAiThinking.value = false
@@ -178,5 +187,20 @@ class GameViewModel : ViewModel() {
         val winner = if (resigningSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
         _gameState.value = state.copy(status = winner)
         updateStatusMessage(_gameState.value)
+    }
+
+    fun agreeDraw(requester: Side? = null) {
+        gameVersion++
+        _isAiThinking.value = false
+        val state = _gameState.value
+        _gameState.value = state.copy(status = GameStatus.DRAW)
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _statusMessage.value = if (requester != null) {
+            val sideName = if (requester == Side.RED) "红方" else "黑方"
+            "$sideName提出求和，双方同意和棋"
+        } else {
+            "双方同意和棋"
+        }
     }
 }

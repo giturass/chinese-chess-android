@@ -15,11 +15,17 @@ data class GameState(
     val status: GameStatus = GameStatus.PLAYING,
     val moveHistory: MutableList<Move> = mutableListOf(),
     val aiDifficulty: Int = 3,
-    val isFlipped: Boolean = false
+    val isFlipped: Boolean = false,
+    val humanSide: Side = Side.RED
 ) {
     fun makeMove(move: Move): GameState {
+        val movingPiece = board.getPiece(move.fromRow, move.fromCol)
         val captured = board.makeMove(move)
-        val actualMove = move.copy(captured = captured, side = currentSide)
+        val actualMove = move.copy(
+            captured = captured,
+            side = currentSide,
+            pieceType = movingPiece?.type ?: move.pieceType
+        )
         val nextSide = currentSide.opposite()
 
         val newStatus = when {

@@ -5,9 +5,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ericlee.chess.ui.theme.woodTexture
 
 @Composable
 fun HomeScreen(
@@ -15,9 +17,10 @@ fun HomeScreen(
     onStartLocalGame: () -> Unit,
     onStartEndgame: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .woodTexture()
     ) {
         Column(
             modifier = Modifier
@@ -30,7 +33,7 @@ fun HomeScreen(
                 text = "中 国 象 棋",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = Color(0xFFFFE4A6)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -38,7 +41,7 @@ fun HomeScreen(
             Text(
                 text = "Chinese Chess",
                 fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
             )
 
             Spacer(modifier = Modifier.height(64.dp))
@@ -80,7 +83,7 @@ private fun MenuButton(
             .fillMaxWidth()
             .height(72.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary
+            containerColor = Color(0xCC2D1A0A)
         )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

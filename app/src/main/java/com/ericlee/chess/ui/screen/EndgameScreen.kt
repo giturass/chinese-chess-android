@@ -1,12 +1,10 @@
 package com.ericlee.chess.ui.screen
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,6 +18,7 @@ import com.ericlee.chess.data.EndgameRepository
 import com.ericlee.chess.model.EndgamePuzzle
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.theme.woodTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +83,7 @@ fun EndgameScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .background(Color(0xFFFFF7E8))
+                    .woodTexture()
                     .padding(16.dp)
             ) {
                 items(puzzles) { puzzle ->
@@ -126,17 +125,7 @@ private fun GameContent(
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
-                actions = {
-                    Button(
-                        onClick = onReset,
-                        modifier = Modifier.padding(end = 8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("重置棋盘")
-                    }
-                }
+                actions = {}
             )
         }
     ) { padding ->
@@ -144,7 +133,7 @@ private fun GameContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFFFFF7E8))
+                .woodTexture()
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -233,7 +222,7 @@ private fun GameContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = onReset) {
-                            Text("再来一局")
+                            Text("进入新局")
                         }
                     }
                 }

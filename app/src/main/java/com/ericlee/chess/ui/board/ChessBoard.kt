@@ -25,22 +25,22 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
+import kotlin.math.min
 import kotlin.math.roundToInt
 
-private val BOARD_COLOR = Color(0xFFD19B55)
-private val BOARD_INNER_COLOR = Color(0xFFE0AF67)
-private val EDGE_COLOR = Color(0xFF4A220C)
-private val GRID_COLOR = Color(0xFF2E1507)
+private val STONE_BASE = Color(0xFF687371)
+private val STONE_LIGHT = Color(0xFF9BA8A3)
+private val STONE_MID = Color(0xFF77837F)
+private val STONE_DARK = Color(0xFF303C3B)
+private val EDGE_COLOR = Color(0xFF24302F)
+private val GRID_COLOR = Color(0xFF263433)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
-private val SELECTED_COLOR = Color(0x80F4C430)
+private val SELECTED_COLOR = Color(0x80E8D07B)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
-private val MARKER_COLOR = Color(0xFF5D2D10)
+private val MARKER_COLOR = Color(0xFF2D3C3A)
 private val PIECE_BG = Color(0xFFF6D495)
-private val RIVER_WASH = Color(0x66415D52)
-private val RIVER_LINE = Color(0xB835615A)
-private val RIVER_DEEP = Color(0xFF244D48)
 
 @Composable
 fun ChessBoard(
@@ -69,27 +69,28 @@ fun ChessBoard(
         ),
         label = "pulse"
     )
-    val riverPhase by transition.animateFloat(
+    val ripplePhase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = LinearEasing),
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "riverPhase"
+        label = "ripplePhase"
     )
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(9f / 10f)
+            .aspectRatio(0.86f)
             .pointerInput(isFlipped, onPositionClick) {
                 detectTapGestures { offset ->
-                    val cellW = size.width / 10f
-                    val cellH = size.height / 11f
-                    val offsetX = size.width / 2f - 4f * cellW
+                    val cellW = min(size.width / 9.15f, size.height / 10.35f)
+                    val cellH = cellW
+                    val offsetX = (size.width - 8f * cellW) / 2f
+                    val offsetY = (size.height - 9f * cellH) / 2f
                     val displayCol = ((offset.x - offsetX) / cellW).roundToInt()
-                    val displayRow = ((offset.y - cellH) / cellH).roundToInt()
+                    val displayRow = ((offset.y - offsetY) / cellH).roundToInt()
                     val row = toBoardRow(displayRow, isFlipped)
                     val col = toBoardCol(displayCol, isFlipped)
                     if (row in 0..9 && col in 0..8) {
@@ -98,24 +99,38 @@ fun ChessBoard(
                 }
             }
     ) {
-        val cellW = size.width / 10f
-        val cellH = size.height / 11f
-        val offsetX = size.width / 2f - 4f * cellW
-        val offsetY = cellH
+        val cellW = min(size.width / 9.15f, size.height / 10.35f)
+        val cellH = cellW
+        val offsetX = (size.width - 8f * cellW) / 2f
+        val offsetY = (size.height - 9f * cellH) / 2f
 
         drawBoardBackground(offsetX, offsetY, cellW, cellH)
 
         drawGrid(offsetX, offsetY, cellW, cellH)
         drawPalace(offsetX, offsetY, cellW, cellH)
-        drawRiver(offsetX, offsetY, cellW, cellH, riverPhase)
+        drawStoneRiverText(offsetX, offsetY, cellW, cellH)
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         if (lastMove != null) {
             drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, currentSide.opposite(), pulse)
+            if (lastMove.captured != null) {
+                val center = boardPositionCenter(lastMove.toRow, lastMove.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
+                drawCaptureEffect(center, cellW, ripplePhase)
+            }
         }
 
         if (selectedPiece != null) {
-            drawPositionHighlight(selectedPiece.row, selectedPiece.col, offsetX, offsetY, cellW, cellH, SELECTED_COLOR, isFlipped)
+            drawPositionHighlight(
+                selectedPiece.row,
+                selectedPiece.col,
+                offsetX,
+                offsetY,
+                cellW,
+                cellH,
+                SELECTED_COLOR,
+                isFlipped,
+                ripplePhase
+            )
         }
 
         for (move in legalMoves) {
@@ -167,10 +182,10 @@ private fun toBoardRow(displayRow: Int, isFlipped: Boolean): Int = if (isFlipped
 private fun toBoardCol(displayCol: Int, isFlipped: Boolean): Int = if (isFlipped) 8 - displayCol else displayCol
 
 private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
-    val outerTopLeft = Offset(offsetX - cellW * 0.34f, offsetY - cellH * 0.38f)
-    val outerSize = Size(cellW * 8.68f, cellH * 9.76f)
-    val innerTopLeft = Offset(offsetX - cellW * 0.18f, offsetY - cellH * 0.22f)
-    val innerSize = Size(cellW * 8.36f, cellH * 9.44f)
+    val outerTopLeft = Offset(offsetX - cellW * 0.45f, offsetY - cellH * 0.45f)
+    val outerSize = Size(cellW * 8.9f, cellH * 9.9f)
+    val innerTopLeft = Offset(offsetX - cellW * 0.2f, offsetY - cellH * 0.2f)
+    val innerSize = Size(cellW * 8.4f, cellH * 9.4f)
 
     drawRoundRect(
         color = EDGE_COLOR,
@@ -179,14 +194,57 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
     )
     drawRoundRect(
-        color = BOARD_COLOR,
+        brush = Brush.linearGradient(
+            colors = listOf(STONE_LIGHT, STONE_MID, STONE_BASE, STONE_DARK),
+            start = outerTopLeft,
+            end = Offset(outerTopLeft.x + outerSize.width, outerTopLeft.y + outerSize.height)
+        ),
         topLeft = Offset(outerTopLeft.x + cellW * 0.07f, outerTopLeft.y + cellH * 0.07f),
         size = Size(outerSize.width - cellW * 0.14f, outerSize.height - cellH * 0.14f),
         cornerRadius = CornerRadius(cellW * 0.12f, cellW * 0.12f)
     )
-    drawRect(color = BOARD_INNER_COLOR, topLeft = innerTopLeft, size = innerSize)
     drawRoundRect(
-        color = MARKER_COLOR,
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFA8B1AA),
+                Color(0xFF7D8985),
+                Color(0xFF65706E),
+                Color(0xFF8D9994)
+            ),
+            start = Offset(innerTopLeft.x, innerTopLeft.y),
+            end = Offset(innerTopLeft.x + innerSize.width, innerTopLeft.y + innerSize.height)
+        ),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f)
+    )
+    for (i in 0..22) {
+        val y = innerTopLeft.y + innerSize.height * (i + 0.35f) / 23f
+        val xDrift = if (i % 2 == 0) cellW * 0.22f else -cellW * 0.14f
+        drawLine(
+            color = Color.White.copy(alpha = 0.06f),
+            start = Offset(innerTopLeft.x + cellW * 0.15f + xDrift, y),
+            end = Offset(innerTopLeft.x + innerSize.width - cellW * 0.16f - xDrift, y + cellH * 0.08f),
+            strokeWidth = 1.1f
+        )
+        if (i % 3 == 0) {
+            drawLine(
+                color = Color.Black.copy(alpha = 0.08f),
+                start = Offset(innerTopLeft.x + cellW * 0.2f, y + cellH * 0.08f),
+                end = Offset(innerTopLeft.x + innerSize.width - cellW * 0.2f, y + cellH * 0.16f),
+                strokeWidth = 1.4f
+            )
+        }
+    }
+    for (i in 0..34) {
+        val x = innerTopLeft.x + innerSize.width * ((i * 37 % 100) / 100f)
+        val y = innerTopLeft.y + innerSize.height * ((i * 53 % 100) / 100f)
+        val r = cellW * (0.018f + (i % 4) * 0.006f)
+        drawCircle(Color.Black.copy(alpha = 0.05f), radius = r, center = Offset(x, y))
+        drawCircle(Color.White.copy(alpha = 0.04f), radius = r * 0.55f, center = Offset(x - r * 0.25f, y - r * 0.25f))
+    }
+    drawRoundRect(
+        color = MARKER_COLOR.copy(alpha = 0.92f),
         topLeft = innerTopLeft,
         size = innerSize,
         cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f),
@@ -197,35 +255,31 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
 private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     // Horizontal lines
     for (r in 0..9) {
-        drawLine(
-            color = GRID_COLOR,
+        drawEngravedLine(
             start = Offset(offsetX, offsetY + r * cellH),
             end = Offset(offsetX + 8 * cellW, offsetY + r * cellH),
-            strokeWidth = if (r == 0 || r == 9) 3.2f else 2f
+            strokeWidth = if (r == 0 || r == 9) 3.6f else 2.2f
         )
     }
 
     // Vertical lines
     for (c in 0..8) {
         if (c == 0 || c == 8) {
-            drawLine(
-                color = GRID_COLOR,
+            drawEngravedLine(
                 start = Offset(offsetX + c * cellW, offsetY),
                 end = Offset(offsetX + c * cellW, offsetY + 9 * cellH),
-                strokeWidth = if (c == 0 || c == 8) 3.2f else 2f
+                strokeWidth = 3.6f
             )
         } else {
-            drawLine(
-                color = GRID_COLOR,
+            drawEngravedLine(
                 start = Offset(offsetX + c * cellW, offsetY),
                 end = Offset(offsetX + c * cellW, offsetY + 4 * cellH),
-                strokeWidth = 2f
+                strokeWidth = 2.2f
             )
-            drawLine(
-                color = GRID_COLOR,
+            drawEngravedLine(
                 start = Offset(offsetX + c * cellW, offsetY + 5 * cellH),
                 end = Offset(offsetX + c * cellW, offsetY + 9 * cellH),
-                strokeWidth = 2f
+                strokeWidth = 2.2f
             )
         }
     }
@@ -234,123 +288,102 @@ private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cel
 private fun DrawScope.drawPalace(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     val palaceColor = MARKER_COLOR
     // Top palace
-    drawLine(palaceColor, Offset(offsetX + 3 * cellW, offsetY), Offset(offsetX + 5 * cellW, offsetY + 2 * cellH), strokeWidth = 2f)
-    drawLine(palaceColor, Offset(offsetX + 5 * cellW, offsetY), Offset(offsetX + 3 * cellW, offsetY + 2 * cellH), strokeWidth = 2f)
+    drawEngravedLine(Offset(offsetX + 3 * cellW, offsetY), Offset(offsetX + 5 * cellW, offsetY + 2 * cellH), 2.2f, palaceColor)
+    drawEngravedLine(Offset(offsetX + 5 * cellW, offsetY), Offset(offsetX + 3 * cellW, offsetY + 2 * cellH), 2.2f, palaceColor)
 
     // Bottom palace
-    drawLine(palaceColor, Offset(offsetX + 3 * cellW, offsetY + 7 * cellH), Offset(offsetX + 5 * cellW, offsetY + 9 * cellH), strokeWidth = 2f)
-    drawLine(palaceColor, Offset(offsetX + 5 * cellW, offsetY + 7 * cellH), Offset(offsetX + 3 * cellW, offsetY + 9 * cellH), strokeWidth = 2f)
+    drawEngravedLine(Offset(offsetX + 3 * cellW, offsetY + 7 * cellH), Offset(offsetX + 5 * cellW, offsetY + 9 * cellH), 2.2f, palaceColor)
+    drawEngravedLine(Offset(offsetX + 5 * cellW, offsetY + 7 * cellH), Offset(offsetX + 3 * cellW, offsetY + 9 * cellH), 2.2f, palaceColor)
 }
 
-private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float, phase: Float) {
+private fun DrawScope.drawEngravedLine(
+    start: Offset,
+    end: Offset,
+    strokeWidth: Float,
+    color: Color = GRID_COLOR
+) {
+    drawLine(
+        color = Color.White.copy(alpha = 0.22f),
+        start = Offset(start.x - 0.8f, start.y - 0.8f),
+        end = Offset(end.x - 0.8f, end.y - 0.8f),
+        strokeWidth = strokeWidth
+    )
+    drawLine(
+        color = Color.Black.copy(alpha = 0.25f),
+        start = Offset(start.x + 1.0f, start.y + 1.0f),
+        end = Offset(end.x + 1.0f, end.y + 1.0f),
+        strokeWidth = strokeWidth
+    )
+    drawLine(color = color, start = start, end = end, strokeWidth = strokeWidth)
+}
+
+private fun DrawScope.drawStoneRiverText(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     val top = offsetY + 4f * cellH
     val bottom = offsetY + 5f * cellH
     val y = (top + bottom) / 2f
-    val left = offsetX + cellW * 0.16f
-    val width = cellW * 7.68f
+    val plaqueSize = Size(cellW * 2.22f, cellH * 0.72f)
+    val plaques = listOf(
+        "楚 河" to Offset(offsetX + cellW * 0.82f, y - plaqueSize.height / 2f),
+        "漢 界" to Offset(offsetX + cellW * 4.96f, y - plaqueSize.height / 2f)
+    )
 
-    drawRoundRect(
-        brush = Brush.verticalGradient(
-            colors = listOf(
-                Color.Transparent,
-                RIVER_WASH.copy(alpha = 0.42f),
-                RIVER_WASH.copy(alpha = 0.64f),
-                RIVER_WASH.copy(alpha = 0.42f),
-                Color.Transparent
+    for ((_, topLeft) in plaques) {
+        drawRoundRect(
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFF8E9995), Color(0xFF65716F), Color(0xFF4A5654)),
+                start = topLeft,
+                end = Offset(topLeft.x + plaqueSize.width, topLeft.y + plaqueSize.height)
             ),
-            startY = top - cellH * 0.08f,
-            endY = bottom + cellH * 0.08f
-        ),
-        topLeft = Offset(left, top - cellH * 0.08f),
-        size = Size(width, cellH * 1.16f),
-        cornerRadius = CornerRadius(cellH * 0.28f, cellH * 0.28f)
-    )
-
-    drawOval(
-        color = RIVER_DEEP.copy(alpha = 0.12f),
-        topLeft = Offset(left + cellW * 0.28f, y - cellH * 0.42f),
-        size = Size(cellW * 2.2f, cellH * 0.72f)
-    )
-    drawOval(
-        color = RIVER_DEEP.copy(alpha = 0.10f),
-        topLeft = Offset(left + cellW * 4.9f, y - cellH * 0.34f),
-        size = Size(cellW * 2.35f, cellH * 0.64f)
-    )
-
-    for (i in 0..6) {
-        val waveY = top + cellH * (0.18f + i * 0.105f)
-        val drift = (((phase + i * 0.19f) % 1f) - 0.5f) * cellW * 0.54f
-        drawWave(
-            startX = left + cellW * 0.22f + drift,
-            endX = left + width - cellW * 0.22f + drift,
-            y = waveY,
-            amplitude = cellH * (0.03f + (i % 3) * 0.012f),
-            wavelength = cellW * (0.72f + (i % 2) * 0.18f),
-            color = RIVER_LINE.copy(alpha = 0.28f + i * 0.045f),
-            strokeWidth = if (i % 2 == 0) 2.2f else 1.4f
+            topLeft = topLeft,
+            size = plaqueSize,
+            cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f)
         )
-    }
-
-    val foamColor = Color(0xFFEAD2A2)
-    for (i in 0..10) {
-        val x = left + cellW * (0.55f + i * 0.68f) + (((phase + i * 0.13f) % 1f) - 0.5f) * cellW * 0.24f
-        val cy = top + cellH * (0.18f + (i % 4) * 0.19f)
-        drawCircle(
-            color = foamColor.copy(alpha = 0.18f + (i % 3) * 0.04f),
-            radius = cellW * (0.026f + (i % 2) * 0.011f),
-            center = Offset(x, cy)
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.18f),
+            topLeft = Offset(topLeft.x + 1.2f, topLeft.y + 1.2f),
+            size = plaqueSize,
+            cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f),
+            style = Stroke(width = 1.4f)
+        )
+        drawRoundRect(
+            color = Color.Black.copy(alpha = 0.24f),
+            topLeft = topLeft,
+            size = plaqueSize,
+            cornerRadius = CornerRadius(cellH * 0.08f, cellH * 0.08f),
+            style = Stroke(width = 2.2f)
         )
     }
 
     drawContext.canvas.nativeCanvas.apply {
-        val shadowPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#7A3F17")
-            textSize = cellH * 0.56f
+        val highlightPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#B8C4BC")
+            textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
-            letterSpacing = 0.08f
+            letterSpacing = 0.12f
             isAntiAlias = true
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
         }
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#4D2710")
-            textSize = cellH * 0.56f
+        val carvedPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#263130")
+            textSize = cellH * 0.46f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
-            letterSpacing = 0.08f
+            letterSpacing = 0.12f
             isAntiAlias = true
             typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
         }
-        shadowPaint.alpha = 70
-        drawText("楚  河", offsetX + 2 * cellW + 1.8f, y + cellH * 0.18f + 1.8f, shadowPaint)
-        drawText("汉  界", offsetX + 6 * cellW + 1.8f, y + cellH * 0.18f + 1.8f, shadowPaint)
-        drawText("楚  河", offsetX + 2 * cellW, y + cellH * 0.18f, paint)
-        drawText("汉  界", offsetX + 6 * cellW, y + cellH * 0.18f, paint)
+        for ((text, topLeft) in plaques) {
+            val centerX = topLeft.x + plaqueSize.width / 2f
+            val baseline = y - (carvedPaint.descent() + carvedPaint.ascent()) / 2f
+            drawText(text, centerX - 1.4f, baseline - 1.4f, highlightPaint)
+            drawText(text, centerX + 1.6f, baseline + 1.6f, carvedPaint)
+            carvedPaint.style = android.graphics.Paint.Style.STROKE
+            carvedPaint.strokeWidth = 1.2f
+            drawText(text, centerX, baseline, carvedPaint)
+            carvedPaint.style = android.graphics.Paint.Style.FILL
+        }
     }
-}
-
-private fun DrawScope.drawWave(
-    startX: Float,
-    endX: Float,
-    y: Float,
-    amplitude: Float,
-    wavelength: Float,
-    color: Color,
-    strokeWidth: Float
-) {
-    val path = Path()
-    path.moveTo(startX, y)
-    var x = startX
-    var crest = true
-    while (x < endX) {
-        val nextX = (x + wavelength / 2f).coerceAtMost(endX)
-        val controlX = x + (nextX - x) / 2f
-        val controlY = y + if (crest) -amplitude else amplitude
-        path.quadraticBezierTo(controlX, controlY, nextX, y)
-        x = nextX
-        crest = !crest
-    }
-    drawPath(path = path, color = color, style = Stroke(width = strokeWidth))
 }
 
 private fun DrawScope.drawPositionMarkers(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
@@ -395,13 +428,31 @@ private fun DrawScope.drawPositionHighlight(
     offsetX: Float, offsetY: Float,
     cellW: Float, cellH: Float,
     color: Color,
-    isFlipped: Boolean
+    isFlipped: Boolean,
+    ripplePhase: Float
 ) {
     val displayRow = toDisplayRow(row, isFlipped)
     val displayCol = toDisplayCol(col, isFlipped)
     val cx = offsetX + displayCol * cellW
     val cy = offsetY + displayRow * cellH
-    drawCircle(color = color, radius = cellW * 0.46f, center = Offset(cx, cy))
+    val center = Offset(cx, cy)
+    drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.42f, center = center)
+    for (i in 0..2) {
+        val phase = (ripplePhase + i / 3f) % 1f
+        val alpha = (1f - phase) * 0.34f
+        drawCircle(
+            color = Color(0xFFEBD989).copy(alpha = alpha),
+            radius = cellW * (0.38f + phase * 0.42f),
+            center = center,
+            style = Stroke(width = 3.2f * (1f - phase).coerceAtLeast(0.25f))
+        )
+    }
+    drawCircle(
+        color = Color(0xFFFFF0A6).copy(alpha = 0.62f),
+        radius = cellW * 0.45f,
+        center = center,
+        style = Stroke(width = 2.4f)
+    )
 }
 
 private fun DrawScope.drawMoveEffect(
@@ -438,7 +489,6 @@ private fun DrawScope.drawMoveEffect(
     drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.66f * pulse, center = to)
     drawCircle(color = Color(0xFFE8C277).copy(alpha = 0.72f), radius = cellW * 0.53f, center = to, style = Stroke(width = 5f))
     drawCircle(color = color, radius = cellW * 0.4f * pulse, center = to, style = Stroke(width = 4.5f))
-    drawLastMoveLabel(moveSide, to, cellW, cellH)
 
     if (move.captured != null) {
         drawCaptureBurst(to.x, to.y, cellW * 0.43f, CHECK_COLOR, 1f)
@@ -468,40 +518,6 @@ private fun DrawScope.drawMoveArrowHead(from: Offset, to: Offset, color: Color, 
     drawPath(path = path, color = color)
 }
 
-private fun DrawScope.drawLastMoveLabel(side: Side, center: Offset, cellW: Float, cellH: Float) {
-    val label = if (side == Side.RED) "红方出子" else "黑方出子"
-    val labelColor = if (side == Side.RED) RED_COLOR else BLACK_COLOR
-    val labelWidth = cellW * 1.78f
-    val labelHeight = cellH * 0.34f
-    val x = (center.x - labelWidth / 2f).coerceIn(cellW * 0.12f, size.width - labelWidth - cellW * 0.12f)
-    val y = (center.y - cellH * 0.78f).coerceIn(cellH * 0.16f, size.height - labelHeight - cellH * 0.16f)
-
-    drawRoundRect(
-        color = labelColor.copy(alpha = 0.88f),
-        topLeft = Offset(x, y),
-        size = Size(labelWidth, labelHeight),
-        cornerRadius = CornerRadius(labelHeight / 2f, labelHeight / 2f)
-    )
-    drawRoundRect(
-        color = Color(0xFFE8C277).copy(alpha = 0.95f),
-        topLeft = Offset(x, y),
-        size = Size(labelWidth, labelHeight),
-        cornerRadius = CornerRadius(labelHeight / 2f, labelHeight / 2f),
-        style = Stroke(width = 1.4f)
-    )
-
-    drawContext.canvas.nativeCanvas.apply {
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#FFF2C7")
-            textSize = labelHeight * 0.56f
-            textAlign = android.graphics.Paint.Align.CENTER
-            isFakeBoldText = true
-            isAntiAlias = true
-        }
-        drawText(label, x + labelWidth / 2f, y + labelHeight / 2f - (paint.descent() + paint.ascent()) / 2, paint)
-    }
-}
-
 private fun DrawScope.drawCaptureBurst(cx: Float, cy: Float, radius: Float, color: Color, scale: Float) {
     val burst = radius * scale
     for (i in 0 until 8) {
@@ -517,6 +533,32 @@ private fun DrawScope.drawCaptureBurst(cx: Float, cy: Float, radius: Float, colo
             y = cy + kotlin.math.sin(angle).toFloat() * outer
         )
         drawLine(color = color, start = start, end = end, strokeWidth = 2.4f)
+    }
+}
+
+private fun DrawScope.drawCaptureEffect(center: Offset, cellW: Float, phase: Float) {
+    val ringRadius = cellW * (0.28f + phase * 0.55f)
+    drawCircle(
+        color = Color(0xFFF1D78D).copy(alpha = (1f - phase) * 0.46f),
+        radius = ringRadius,
+        center = center,
+        style = Stroke(width = cellW * 0.06f * (1f - phase).coerceAtLeast(0.25f))
+    )
+    drawCircle(
+        color = CHECK_COLOR.copy(alpha = (1f - phase) * 0.18f),
+        radius = cellW * (0.44f + phase * 0.48f),
+        center = center
+    )
+    for (i in 0 until 14) {
+        val angle = Math.PI * 2.0 * i / 14.0
+        val drift = cellW * (0.2f + phase * (0.36f + (i % 3) * 0.05f))
+        val x = center.x + kotlin.math.cos(angle).toFloat() * drift
+        val y = center.y + kotlin.math.sin(angle).toFloat() * drift
+        drawCircle(
+            color = Color(0xFFE8D3A0).copy(alpha = (1f - phase) * (0.38f + (i % 2) * 0.12f)),
+            radius = cellW * (0.025f + (i % 4) * 0.006f),
+            center = Offset(x, y)
+        )
     }
 }
 
