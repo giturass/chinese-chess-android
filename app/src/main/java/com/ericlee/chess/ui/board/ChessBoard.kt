@@ -111,7 +111,7 @@ fun ChessBoard(
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         if (lastMove != null) {
-            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, pulse)
+            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, currentSide.opposite(), pulse)
         }
 
         if (selectedPiece != null) {
@@ -411,12 +411,14 @@ private fun DrawScope.drawMoveEffect(
     cellW: Float,
     cellH: Float,
     isFlipped: Boolean,
+    fallbackSide: Side,
     pulse: Float
 ) {
     val from = boardPositionCenter(move.fromRow, move.fromCol, offsetX, offsetY, cellW, cellH, isFlipped)
     val to = boardPositionCenter(move.toRow, move.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
-    val color = if (move.side == Side.RED) RED_COLOR else Color(0xFF231711)
-    val glow = if (move.side == Side.RED) Color(0xFFDC3B2E) else Color(0xFF0F0B08)
+    val moveSide = move.side ?: fallbackSide
+    val color = if (moveSide == Side.RED) RED_COLOR else Color(0xFF231711)
+    val glow = if (moveSide == Side.RED) Color(0xFFDC3B2E) else Color(0xFF0F0B08)
 
     drawLine(
         color = glow.copy(alpha = 0.44f),
@@ -436,7 +438,7 @@ private fun DrawScope.drawMoveEffect(
     drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.66f * pulse, center = to)
     drawCircle(color = Color(0xFFE8C277).copy(alpha = 0.72f), radius = cellW * 0.53f, center = to, style = Stroke(width = 5f))
     drawCircle(color = color, radius = cellW * 0.4f * pulse, center = to, style = Stroke(width = 4.5f))
-    drawLastMoveLabel(move.side, to, cellW, cellH)
+    drawLastMoveLabel(moveSide, to, cellW, cellH)
 
     if (move.captured != null) {
         drawCaptureBurst(to.x, to.y, cellW * 0.43f, CHECK_COLOR, 1f)
