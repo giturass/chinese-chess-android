@@ -44,7 +44,7 @@ fun GameStatusBanner(
         GameStatus.BLACK_WIN -> "黑方获胜"
         GameStatus.STALEMATE -> "和棋"
         GameStatus.DRAW -> "和棋"
-        GameStatus.PLAYING -> if (isCheck) "将军！$currentSideName受将" else "$currentSideName出棋"
+        GameStatus.PLAYING -> if (isCheck) "将军！${currentSideName}受将" else "${currentSideName}出棋"
     }
     val detail = when {
         isAiThinking -> "AI 正在思考，请稍候"
