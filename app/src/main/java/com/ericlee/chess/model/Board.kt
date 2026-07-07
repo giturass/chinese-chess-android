@@ -1,4 +1,4 @@
-package com.xiaomi.chess.model
+package com.ericlee.chess.model
 
 class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList()) {
 
@@ -12,12 +12,19 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
         pieces.find { it.side == side && it.type == PieceType.KING }
 
     fun makeMove(move: Move): Piece? {
+        val movingIndex = pieces.indexOfFirst { it.row == move.fromRow && it.col == move.fromCol }
+        if (movingIndex < 0) return null
+
+        val movingPiece = pieces[movingIndex]
         val captured = getPiece(move.toRow, move.toCol)
-        pieces.removeAll { it.row == move.toRow && it.col == move.toCol }
-        val idx = pieces.indexOfFirst { it.row == move.fromRow && it.col == move.fromCol }
-        if (idx >= 0) {
-            pieces[idx] = pieces[idx].copy(row = move.toRow, col = move.toCol)
+        if (captured?.side == movingPiece.side) return null
+
+        if (captured != null) {
+            pieces.remove(captured)
         }
+
+        val updatedMovingIndex = pieces.indexOfFirst { it.row == move.fromRow && it.col == move.fromCol }
+        pieces[updatedMovingIndex] = movingPiece.copy(row = move.toRow, col = move.toCol)
         return captured
     }
 
@@ -94,9 +101,14 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
         val dc = targetCol - piece.col
         return when (piece.type) {
             PieceType.KING -> {
-                isInsidePalace(targetRow, targetCol, piece.side) &&
-                    (kotlin.math.abs(dr) + kotlin.math.abs(dc) == 1) &&
-                    !isKingExposedAfterMove(piece, targetRow, targetCol)
+                val target = getPiece(targetRow, targetCol)
+                val attacksFlyingKing = target?.type == PieceType.KING &&
+                    target.side != piece.side &&
+                    dc == 0 &&
+                    countPiecesBetweenInCol(piece.col, piece.row, targetRow) == 0
+                val attacksInsidePalace = isInsidePalace(targetRow, targetCol, piece.side) &&
+                    kotlin.math.abs(dr) + kotlin.math.abs(dc) == 1
+                attacksFlyingKing || attacksInsidePalace
             }
             PieceType.ADVISOR -> {
                 isInsidePalace(targetRow, targetCol, piece.side) &&
@@ -143,24 +155,8 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
         }
     }
 
-    private fun isKingExposedAfterMove(piece: Piece, toRow: Int, toCol: Int): Boolean {
-        val savedRow = piece.row
-        val savedCol = piece.col
-        val target = getPiece(toRow, toCol)
-
-        val idx = pieces.indexOfFirst { it === piece }
-        pieces[idx] = piece.copy(row = toRow, col = toCol)
-        if (target != null) pieces.removeAll { it.row == toRow && it.col == toCol }
-
-        val facing = kingsAreFacing()
-
-        pieces[idx] = piece.copy(row = savedRow, col = savedCol)
-        if (target != null) pieces.add(target)
-
-        return facing
-    }
-
     fun isCheckmate(side: Side): Boolean {
+        if (findKing(side) == null) return true
         if (!isInCheck(side)) return false
         return getAllLegalMoves(side).isEmpty()
     }
@@ -181,10 +177,9 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
     fun getLegalMovesForPiece(piece: Piece): List<Move> {
         val candidates = getCandidateMoves(piece)
         return candidates.filter { move ->
-            val captured = getPiece(move.toRow, move.toCol)
-            makeMove(move)
+            val actualMove = move.copy(captured = makeMove(move))
             val inCheck = isInCheck(piece.side)
-            undoMove(move)
+            undoMove(actualMove)
             !inCheck
         }
     }

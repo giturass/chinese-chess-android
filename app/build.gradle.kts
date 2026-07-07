@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.xiaomi.chess"
+    namespace = "com.ericlee.chess"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.xiaomi.chess"
+        applicationId = "com.ericlee.chess"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

@@ -1,4 +1,4 @@
-package com.xiaomi.chess.model
+package com.ericlee.chess.model
 
 enum class GameMode {
     AI, LOCAL, ENDGAME
@@ -23,10 +23,15 @@ data class GameState(
         val nextSide = currentSide.opposite()
 
         val newStatus = when {
+            board.findKing(nextSide) == null -> {
+                if (nextSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
+            }
             board.isCheckmate(nextSide) -> {
                 if (nextSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
             }
-            board.isStalemate(nextSide) -> GameStatus.STALEMATE
+            board.isStalemate(nextSide) -> {
+                if (nextSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
+            }
             else -> GameStatus.PLAYING
         }
 

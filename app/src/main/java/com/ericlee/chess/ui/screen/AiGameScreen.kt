@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.screen
+package com.ericlee.chess.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -12,9 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xiaomi.chess.model.GameMode
-import com.xiaomi.chess.ui.board.ChessBoard
-import com.xiaomi.chess.viewmodel.GameViewModel
+import com.ericlee.chess.model.GameMode
+import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,11 +24,6 @@ fun AiGameScreen(
 ) {
     var difficulty by remember { mutableIntStateOf(3) }
     var gameStarted by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.startGame(GameMode.AI, difficulty)
-        gameStarted = true
-    }
 
     val state by viewModel.gameState.collectAsState()
     val selectedPiece by viewModel.selectedPiece.collectAsState()
@@ -46,10 +41,12 @@ fun AiGameScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.startGame(GameMode.AI, difficulty)
-                    }) {
-                        Icon(Icons.Default.Refresh, "重新开始")
+                    if (gameStarted) {
+                        IconButton(onClick = {
+                            viewModel.startGame(GameMode.AI, difficulty)
+                        }, enabled = !isAiThinking) {
+                            Icon(Icons.Default.Refresh, "重新开始")
+                        }
                     }
                 }
             )
@@ -65,7 +62,7 @@ fun AiGameScreen(
             if (!gameStarted) {
                 DifficultySelector(difficulty = difficulty) {
                     difficulty = it
-                    viewModel.startGame(GameMode.AI, difficulty)
+                    viewModel.startGame(GameMode.AI, it)
                     gameStarted = true
                 }
             } else {
@@ -99,7 +96,6 @@ fun AiGameScreen(
                 // Chess board
                 ChessBoard(
                     board = state.board,
-                    currentSide = state.currentSide,
                     selectedPiece = selectedPiece,
                     legalMoves = legalMoves,
                     lastMove = state.lastMove,
@@ -125,7 +121,7 @@ fun AiGameScreen(
 
                     OutlinedButton(
                         onClick = { viewModel.resign() },
-                        enabled = state.status == com.xiaomi.chess.model.GameStatus.PLAYING
+                        enabled = state.status == com.ericlee.chess.model.GameStatus.PLAYING && !isAiThinking
                     ) {
                         Text("认输")
                     }
@@ -160,11 +156,19 @@ private fun DifficultySelector(
         )
 
         for ((level, name) in levels) {
+            val selected = level == difficulty
             Button(
                 onClick = { onSelect(level) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 8.dp)
+                    .padding(horizontal = 32.dp, vertical = 8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    }
+                )
             ) {
                 Text(name, fontSize = 18.sp)
             }

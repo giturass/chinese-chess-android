@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.screen
+package com.ericlee.chess.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,11 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xiaomi.chess.data.EndgameRepository
-import com.xiaomi.chess.model.EndgamePuzzle
-import com.xiaomi.chess.model.GameStatus
-import com.xiaomi.chess.ui.board.ChessBoard
-import com.xiaomi.chess.viewmodel.GameViewModel
+import com.ericlee.chess.data.EndgameRepository
+import com.ericlee.chess.model.EndgamePuzzle
+import com.ericlee.chess.model.GameStatus
+import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +27,7 @@ fun EndgameScreen(
     onBack: () -> Unit
 ) {
     var selectedPuzzle by remember { mutableStateOf<EndgamePuzzle?>(null) }
+    var showHint by remember { mutableStateOf(false) }
     val puzzles = remember { EndgameRepository.getPuzzles() }
 
     val state by viewModel.gameState.collectAsState()
@@ -34,19 +35,36 @@ fun EndgameScreen(
     val legalMoves by viewModel.legalMoves.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
 
-    if (selectedPuzzle != null) {
+    val puzzle = selectedPuzzle
+    if (puzzle != null) {
         GameContent(
-            puzzle = selectedPuzzle!!,
+            puzzle = puzzle,
             state = state,
             selectedPiece = selectedPiece,
             legalMoves = legalMoves,
             statusMessage = statusMessage,
-            onBack = { selectedPuzzle = null },
-            onReset = { viewModel.loadEndgame(selectedPuzzle!!) },
+            onBack = {
+                showHint = false
+                selectedPuzzle = null
+            },
+            onReset = { viewModel.loadEndgame(puzzle) },
             onUndo = { viewModel.undoMove() },
             onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
-            onShowHint = { /* TODO: show hint */ }
+            onShowHint = { showHint = true }
         )
+
+        if (showHint) {
+            AlertDialog(
+                onDismissRequest = { showHint = false },
+                confirmButton = {
+                    TextButton(onClick = { showHint = false }) {
+                        Text("知道了")
+                    }
+                },
+                title = { Text("提示") },
+                text = { Text(puzzle.hint) }
+            )
+        }
     } else {
         Scaffold(
             topBar = {
@@ -70,6 +88,7 @@ fun EndgameScreen(
                     PuzzleCard(
                         puzzle = puzzle,
                         onClick = {
+                            showHint = false
                             selectedPuzzle = puzzle
                             viewModel.loadEndgame(puzzle)
                         }
@@ -85,9 +104,9 @@ fun EndgameScreen(
 @Composable
 private fun GameContent(
     puzzle: EndgamePuzzle,
-    state: com.xiaomi.chess.model.GameState,
-    selectedPiece: com.xiaomi.chess.model.Piece?,
-    legalMoves: List<com.xiaomi.chess.model.Move>,
+    state: com.ericlee.chess.model.GameState,
+    selectedPiece: com.ericlee.chess.model.Piece?,
+    legalMoves: List<com.ericlee.chess.model.Move>,
     statusMessage: String,
     onBack: () -> Unit,
     onReset: () -> Unit,
@@ -149,7 +168,6 @@ private fun GameContent(
             // Chess board
             ChessBoard(
                 board = state.board,
-                currentSide = state.currentSide,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,

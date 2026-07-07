@@ -1,7 +1,7 @@
-package com.xiaomi.chess.data
+package com.ericlee.chess.data
 
-import com.xiaomi.chess.model.EndgamePuzzle
-import com.xiaomi.chess.model.PuzzlePiece
+import com.ericlee.chess.model.EndgamePuzzle
+import com.ericlee.chess.model.PuzzlePiece
 
 object EndgameRepository {
 

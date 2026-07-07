@@ -1,4 +1,4 @@
-package com.xiaomi.chess.model
+package com.ericlee.chess.model
 
 enum class PieceType(val label: String) {
     KING("帅"),      // 帅/将

@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.theme
+package com.ericlee.chess.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme

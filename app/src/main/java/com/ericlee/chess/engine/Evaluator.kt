@@ -1,6 +1,6 @@
-package com.xiaomi.chess.engine
+package com.ericlee.chess.engine
 
-import com.xiaomi.chess.model.*
+import com.ericlee.chess.model.*
 
 object Evaluator {
 

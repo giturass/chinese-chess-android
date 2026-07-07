@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.screen
+package com.ericlee.chess.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -12,10 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xiaomi.chess.model.GameMode
-import com.xiaomi.chess.model.GameStatus
-import com.xiaomi.chess.ui.board.ChessBoard
-import com.xiaomi.chess.viewmodel.GameViewModel
+import com.ericlee.chess.model.GameMode
+import com.ericlee.chess.model.GameStatus
+import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +87,6 @@ fun LocalGameScreen(
             // Chess board
             ChessBoard(
                 board = state.board,
-                currentSide = state.currentSide,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,

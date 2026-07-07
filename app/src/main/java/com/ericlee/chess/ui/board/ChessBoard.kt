@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.board
+package com.ericlee.chess.ui.board
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -11,14 +11,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import com.xiaomi.chess.model.*
+import com.ericlee.chess.model.*
 
 private val BOARD_COLOR = Color(0xFFDEB887)
-private val LINE_COLOR = Color(0xFF4A2800)
 private val GRID_COLOR = Color(0xFF3E1F00)
 private val RED_COLOR = Color(0xFFCC0000)
 private val BLACK_COLOR = Color(0xFF1A1A1A)
@@ -29,7 +27,6 @@ private val CHECK_COLOR = Color(0x80FF0000)
 @Composable
 fun ChessBoard(
     board: Board,
-    currentSide: Side,
     selectedPiece: Piece?,
     legalMoves: List<Move>,
     lastMove: Move?,
@@ -49,12 +46,10 @@ fun ChessBoard(
                 detectTapGestures { offset ->
                     val cellW = size.width / 10f
                     val cellH = size.height / 11f
-                    val col = ((offset.x - cellW / 2) / cellW).toInt()
-                    val row = if (isFlipped) {
-                        9 - ((offset.y - cellH) / cellH).toInt()
-                    } else {
-                        ((offset.y - cellH) / cellH).toInt()
-                    }
+                    val displayCol = ((offset.x - cellW / 2) / cellW).toInt()
+                    val displayRow = ((offset.y - cellH) / cellH).toInt()
+                    val row = toBoardRow(displayRow, isFlipped)
+                    val col = toBoardCol(displayCol, isFlipped)
                     if (row in 0..9 && col in 0..8) {
                         onPositionClick(row, col)
                     }
@@ -90,8 +85,8 @@ fun ChessBoard(
 
         // Legal move dots
         for (move in legalMoves) {
-            val cx = offsetX + move.toCol * cellW
-            val cy = offsetY + move.toRow * cellH
+            val cx = offsetX + toDisplayCol(move.toCol, isFlipped) * cellW
+            val cy = offsetY + toDisplayRow(move.toRow, isFlipped) * cellH
             val target = board.getPiece(move.toRow, move.toCol)
             if (target != null) {
                 drawCircle(
@@ -112,16 +107,22 @@ fun ChessBoard(
         // Draw pieces
         for ((row, col) in pieceMap.keys) {
             val piece = pieceMap[Pair(row, col)] ?: continue
-            val cx = offsetX + col * cellW
-            val cy = offsetY + row * cellH
+            val cx = offsetX + toDisplayCol(col, isFlipped) * cellW
+            val cy = offsetY + toDisplayRow(row, isFlipped) * cellH
             drawPiece(piece, cx, cy, cellW * 0.43f)
         }
     }
 }
 
-private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
-    val stroke = Stroke(width = 2f)
+private fun toDisplayRow(row: Int, isFlipped: Boolean): Int = if (isFlipped) 9 - row else row
 
+private fun toDisplayCol(col: Int, isFlipped: Boolean): Int = if (isFlipped) 8 - col else col
+
+private fun toBoardRow(displayRow: Int, isFlipped: Boolean): Int = if (isFlipped) 9 - displayRow else displayRow
+
+private fun toBoardCol(displayCol: Int, isFlipped: Boolean): Int = if (isFlipped) 8 - displayCol else displayCol
+
+private fun DrawScope.drawGrid(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float) {
     // Horizontal lines
     for (r in 0..9) {
         drawLine(
@@ -190,8 +191,9 @@ private fun DrawScope.drawPositionHighlight(
     color: Color,
     isFlipped: Boolean
 ) {
-    val displayRow = if (isFlipped) 9 - row else row
-    val cx = offsetX + col * cellW
+    val displayRow = toDisplayRow(row, isFlipped)
+    val displayCol = toDisplayCol(col, isFlipped)
+    val cx = offsetX + displayCol * cellW
     val cy = offsetY + displayRow * cellH
     drawCircle(color = color, radius = cellW * 0.46f, center = Offset(cx, cy))
 }

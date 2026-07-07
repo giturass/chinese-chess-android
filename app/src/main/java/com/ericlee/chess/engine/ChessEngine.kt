@@ -1,17 +1,13 @@
-package com.xiaomi.chess.engine
+package com.ericlee.chess.engine
 
-import com.xiaomi.chess.model.*
-import kotlin.math.max
-import kotlin.math.min
+import com.ericlee.chess.model.*
 
 class ChessEngine(private val aiSide: Side = Side.BLACK) {
 
     private var nodesSearched = 0
-    private val transpositionTable = HashMap<Long, Int>(100000)
 
     fun findBestMove(board: Board, depth: Int): Move? {
         nodesSearched = 0
-        transpositionTable.clear()
 
         val moves = board.getAllLegalMoves(aiSide)
         if (moves.isEmpty()) return null
@@ -21,9 +17,9 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
         var bestScore = Int.MIN_VALUE
 
         for (move in sortedMoves) {
-            val captured = board.makeMove(move)
+            val actualMove = move.copy(captured = board.makeMove(move))
             val score = -alphaBeta(board, depth - 1, Int.MIN_VALUE + 1, Int.MAX_VALUE - 1, aiSide.opposite())
-            board.undoMove(move)
+            board.undoMove(actualMove)
 
             if (score > bestScore) {
                 bestScore = score
@@ -43,6 +39,13 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
     ): Int {
         nodesSearched++
 
+        if (board.findKing(currentSide) == null) {
+            return -100000 + (100 - depth)
+        }
+        if (board.findKing(currentSide.opposite()) == null) {
+            return 100000 - (100 - depth)
+        }
+
         if (depth <= 0) {
             return Evaluator.evaluate(board, currentSide)
         }
@@ -56,9 +59,9 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
         val sortedMoves = sortMoves(board, moves)
 
         for (move in sortedMoves) {
-            val captured = board.makeMove(move)
+            val actualMove = move.copy(captured = board.makeMove(move))
             val score = -alphaBeta(board, depth - 1, -beta, -a, currentSide.opposite())
-            board.undoMove(move)
+            board.undoMove(actualMove)
 
             if (score >= beta) {
                 return beta
@@ -80,12 +83,14 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
                     board.getPiece(move.fromRow, move.fromCol)?.type ?: PieceType.PAWN
                 )
             }
-            if (board.getPiece(move.toRow, move.toCol) == null) {
-                val midR = (move.fromRow + move.toRow) / 2
-                val midC = (move.fromCol + move.toCol) / 2
-                if (board.isInCheck(board.getPiece(move.fromRow, move.fromCol)?.side?.opposite() ?: Side.RED)) {
+
+            val movingSide = board.getPiece(move.fromRow, move.fromCol)?.side
+            if (movingSide != null) {
+                val actualMove = move.copy(captured = board.makeMove(move))
+                if (board.isInCheck(movingSide.opposite())) {
                     score += 5
                 }
+                board.undoMove(actualMove)
             }
             score
         }

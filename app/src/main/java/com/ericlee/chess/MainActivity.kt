@@ -1,23 +1,19 @@
-package com.xiaomi.chess
+package com.ericlee.chess
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.xiaomi.chess.ui.screen.AiGameScreen
-import com.xiaomi.chess.ui.screen.EndgameScreen
-import com.xiaomi.chess.ui.screen.HomeScreen
-import com.xiaomi.chess.ui.screen.LocalGameScreen
-import com.xiaomi.chess.ui.theme.ChineseChessTheme
-import com.xiaomi.chess.viewmodel.GameViewModel
+import com.ericlee.chess.ui.screen.AiGameScreen
+import com.ericlee.chess.ui.screen.EndgameScreen
+import com.ericlee.chess.ui.screen.HomeScreen
+import com.ericlee.chess.ui.screen.LocalGameScreen
+import com.ericlee.chess.ui.theme.ChineseChessTheme
+import com.ericlee.chess.viewmodel.GameViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

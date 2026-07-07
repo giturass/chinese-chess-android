@@ -1,4 +1,4 @@
-package com.xiaomi.chess.ui.screen
+package com.ericlee.chess.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

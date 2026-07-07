@@ -1,9 +1,9 @@
-package com.xiaomi.chess.viewmodel
+package com.ericlee.chess.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xiaomi.chess.engine.ChessEngine
-import com.xiaomi.chess.model.*
+import com.ericlee.chess.engine.ChessEngine
+import com.ericlee.chess.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,8 +29,10 @@ class GameViewModel : ViewModel() {
     val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
 
     private var engine: ChessEngine? = null
+    private var gameVersion = 0
 
     fun startGame(mode: GameMode, difficulty: Int = 3, flipped: Boolean = false) {
+        gameVersion++
         _gameState.value = GameState(mode = mode, aiDifficulty = difficulty, isFlipped = flipped)
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
@@ -46,6 +48,7 @@ class GameViewModel : ViewModel() {
     }
 
     fun loadEndgame(puzzle: EndgamePuzzle) {
+        gameVersion++
         val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
         _gameState.value = GameState(
             board = board,
@@ -101,14 +104,18 @@ class GameViewModel : ViewModel() {
     private fun triggerAiMove() {
         _isAiThinking.value = true
         val state = _gameState.value
+        val boardSnapshot = state.board.copy()
         val depth = state.aiDifficulty
+        val version = gameVersion
 
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                engine?.findBestMove(state.board, depth)
+                engine?.findBestMove(boardSnapshot, depth)
             }
 
-            if (move != null) {
+            if (version != gameVersion) return@launch
+
+            if (move != null && _gameState.value.currentSide == Side.BLACK) {
                 val newState = _gameState.value.makeMove(move)
                 _gameState.value = newState
                 updateStatusMessage(newState)
@@ -153,6 +160,8 @@ class GameViewModel : ViewModel() {
     }
 
     fun resign() {
+        gameVersion++
+        _isAiThinking.value = false
         val state = _gameState.value
         val winner = if (state.currentSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
         _gameState.value = state.copy(status = winner)

@@ -1,4 +1,4 @@
-package com.xiaomi.chess.model
+package com.ericlee.chess.model
 
 data class EndgamePuzzle(
     val id: Int,
