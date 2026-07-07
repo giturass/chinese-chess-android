@@ -2,7 +2,6 @@ package com.ericlee.chess.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ericlee.chess.BuildConfig
 import com.ericlee.chess.engine.ChessEngine
 import com.ericlee.chess.model.*
 import com.ericlee.chess.network.OnlineGameClient
@@ -247,28 +246,40 @@ class GameViewModel : ViewModel() {
 
     fun startOnlineGame(
         roomId: String,
-        serverUrl: String = BuildConfig.ONLINE_SERVER_URL
+        serverUrl: String
     ) {
         val cleanedRoomId = roomId.trim()
+        val cleanedServerUrl = serverUrl.trim().trimEnd('/')
         if (cleanedRoomId.isBlank()) {
             _onlineSession.value = OnlineSessionState(message = "请输入房间号")
+            return
+        }
+        if (!cleanedServerUrl.startsWith("http://") && !cleanedServerUrl.startsWith("https://")) {
+            _onlineSession.value = OnlineSessionState(
+                serverUrl = cleanedServerUrl,
+                roomId = cleanedRoomId,
+                message = "请输入有效的服务器地址"
+            )
             return
         }
 
         val previousSession = _onlineSession.value
         val previousPlayerId = previousSession.playerId.takeIf {
-            previousSession.roomId == cleanedRoomId && it.isNotBlank()
+            previousSession.roomId == cleanedRoomId &&
+                previousSession.serverUrl == cleanedServerUrl &&
+                it.isNotBlank()
         }
         onlinePollJob?.cancel()
         gameVersion++
         val version = gameVersion
-        onlineClient = OnlineGameClient(serverUrl)
+        onlineClient = OnlineGameClient(cleanedServerUrl)
         _gameState.value = GameState(mode = GameMode.ONLINE)
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
         _statusMessage.value = "正在连接房间 $cleanedRoomId"
         _onlineSession.value = OnlineSessionState(
+            serverUrl = cleanedServerUrl,
             roomId = cleanedRoomId,
             connecting = true,
             message = "正在连接"
@@ -283,6 +294,7 @@ class GameViewModel : ViewModel() {
                 if (version != gameVersion) return@onSuccess
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = OnlineSessionState(
+                    serverUrl = cleanedServerUrl,
                     roomId = snapshot.roomId,
                     playerId = snapshot.playerId,
                     side = snapshot.side,
@@ -295,6 +307,7 @@ class GameViewModel : ViewModel() {
                 if (version != gameVersion) return@onFailure
                 _statusMessage.value = "联机失败"
                 _onlineSession.value = OnlineSessionState(
+                    serverUrl = cleanedServerUrl,
                     roomId = cleanedRoomId,
                     message = error.message ?: "联机失败"
                 )

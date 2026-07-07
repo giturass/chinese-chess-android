@@ -4,10 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val onlineServerUrl = providers.gradleProperty("onlineServerUrl")
-    .orElse("https://your-render-service.onrender.com")
-    .get()
-
 android {
     namespace = "com.ericlee.chess"
     compileSdk = 35
@@ -18,7 +14,6 @@ android {
         targetSdk = 35
         versionCode = 3
         versionName = "1.0.2"
-        buildConfigField("String", "ONLINE_SERVER_URL", "\"$onlineServerUrl\"")
     }
 
     buildTypes {
@@ -42,7 +37,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 }
 

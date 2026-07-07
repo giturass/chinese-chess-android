@@ -47,6 +47,7 @@ data class OnlineActionRequest(
 )
 
 data class OnlineSessionState(
+    val serverUrl: String = "",
     val roomId: String = "",
     val playerId: String = "",
     val side: Side? = null,

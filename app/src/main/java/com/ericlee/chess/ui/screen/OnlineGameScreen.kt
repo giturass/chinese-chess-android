@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -46,6 +48,7 @@ import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.ui.theme.woodTexture
 import com.ericlee.chess.viewmodel.GameViewModel
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +63,7 @@ fun OnlineGameScreen(
     val session by viewModel.onlineSession.collectAsState()
 
     var roomId by rememberSaveable { mutableStateOf("") }
+    var serverUrl by rememberSaveable { mutableStateOf("") }
     var confirmExit by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
@@ -119,7 +123,7 @@ fun OnlineGameScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("联机对战") },
+                title = { Text("双人对战 · 联机") },
                 navigationIcon = {
                     IconButton(onClick = { if (session.connected) confirmExit = true else onBack() }) {
                         Icon(Icons.Default.ArrowBack, "返回")
@@ -128,7 +132,7 @@ fun OnlineGameScreen(
                 actions = {
                     if (session.roomId.isNotBlank()) {
                         FilledTonalButton(
-                            onClick = { viewModel.startOnlineGame(session.roomId) },
+                            onClick = { viewModel.startOnlineGame(session.roomId, session.serverUrl) },
                             modifier = Modifier.padding(end = 8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
@@ -148,11 +152,14 @@ fun OnlineGameScreen(
     ) { padding ->
         if (!session.connected) {
             OnlineJoinPanel(
+                serverUrl = serverUrl,
                 roomId = roomId,
                 connecting = session.connecting,
                 message = session.message,
+                onServerUrlChange = { serverUrl = it },
                 onRoomIdChange = { roomId = it },
-                onJoin = { viewModel.startOnlineGame(roomId) },
+                onGenerateRoomId = { roomId = generateRoomId() },
+                onJoin = { viewModel.startOnlineGame(roomId, serverUrl) },
                 modifier = Modifier.padding(padding)
             )
         } else {
@@ -210,10 +217,13 @@ fun OnlineGameScreen(
 
 @Composable
 private fun OnlineJoinPanel(
+    serverUrl: String,
     roomId: String,
     connecting: Boolean,
     message: String,
+    onServerUrlChange: (String) -> Unit,
     onRoomIdChange: (String) -> Unit,
+    onGenerateRoomId: () -> Unit,
     onJoin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -230,26 +240,48 @@ private fun OnlineJoinPanel(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "输入房间号",
+                text = "联机房间",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFFFE4A6)
             )
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedTextField(
-                value = roomId,
-                onValueChange = { value ->
-                    onRoomIdChange(value.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(24))
-                },
+                value = serverUrl,
+                onValueChange = onServerUrlChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("房间号") },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+                label = { Text("服务器地址") },
+                placeholder = { Text("https://your-service.onrender.com") }
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = roomId,
+                    onValueChange = { value ->
+                        onRoomIdChange(value.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.take(24))
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    label = { Text("房间号") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Button(
+                    onClick = onGenerateRoomId,
+                    enabled = !connecting,
+                    modifier = Modifier.height(56.dp)
+                ) {
+                    Text("生成")
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onJoin,
-                enabled = !connecting && roomId.isNotBlank(),
+                enabled = !connecting && serverUrl.isNotBlank() && roomId.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
@@ -264,6 +296,15 @@ private fun OnlineJoinPanel(
                     fontSize = 13.sp
                 )
             }
+        }
+    }
+}
+
+private fun generateRoomId(): String {
+    val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return buildString {
+        repeat(6) {
+            append(alphabet[Random.nextInt(alphabet.length)])
         }
     }
 }

@@ -148,7 +148,7 @@ fun LocalGameScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("双人对战") },
+                title = { Text("双人对战 · 本地") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "返回")
