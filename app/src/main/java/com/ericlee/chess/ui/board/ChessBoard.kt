@@ -27,19 +27,20 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
 import kotlin.math.roundToInt
 
-private val BOARD_COLOR = Color(0xFFECCB8F)
-private val BOARD_INNER_COLOR = Color(0xFFF4D9A5)
-private val EDGE_COLOR = Color(0xFF6F3914)
-private val GRID_COLOR = Color(0xFF4B260D)
+private val BOARD_COLOR = Color(0xFFD19B55)
+private val BOARD_INNER_COLOR = Color(0xFFE0AF67)
+private val EDGE_COLOR = Color(0xFF4A220C)
+private val GRID_COLOR = Color(0xFF2E1507)
 private val RED_COLOR = Color(0xFFB32318)
 private val BLACK_COLOR = Color(0xFF1F1711)
 private val SELECTED_COLOR = Color(0x80F4C430)
 private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
-private val MARKER_COLOR = Color(0xFF7B481E)
-private val PIECE_BG = Color(0xFFFFF4D2)
-private val RIVER_WASH = Color(0x33306F75)
-private val RIVER_LINE = Color(0x8A3E7D78)
+private val MARKER_COLOR = Color(0xFF5D2D10)
+private val PIECE_BG = Color(0xFFF6D495)
+private val RIVER_WASH = Color(0x66415D52)
+private val RIVER_LINE = Color(0xB835615A)
+private val RIVER_DEEP = Color(0xFF244D48)
 
 @Composable
 fun ChessBoard(
@@ -152,7 +153,7 @@ fun ChessBoard(
             val piece = pieceMap[Pair(row, col)] ?: continue
             val cx = offsetX + toDisplayCol(col, isFlipped) * cellW
             val cy = offsetY + toDisplayRow(row, isFlipped) * cellH
-            drawPiece(piece, cx, cy, cellW * 0.43f)
+            drawPiece(piece, cx, cy, cellW * 0.43f, isFlipped)
         }
     }
 }
@@ -242,35 +243,87 @@ private fun DrawScope.drawPalace(offsetX: Float, offsetY: Float, cellW: Float, c
 }
 
 private fun DrawScope.drawRiver(offsetX: Float, offsetY: Float, cellW: Float, cellH: Float, phase: Float) {
-    val y = offsetY + 4.5f * cellH
+    val top = offsetY + 4f * cellH
+    val bottom = offsetY + 5f * cellH
+    val y = (top + bottom) / 2f
+    val left = offsetX + cellW * 0.16f
+    val width = cellW * 7.68f
+
     drawRoundRect(
-        color = RIVER_WASH,
-        topLeft = Offset(offsetX + cellW * 0.18f, y - cellH * 0.38f),
-        size = Size(cellW * 7.64f, cellH * 0.76f),
-        cornerRadius = CornerRadius(cellH * 0.32f, cellH * 0.32f)
+        brush = Brush.verticalGradient(
+            colors = listOf(
+                Color.Transparent,
+                RIVER_WASH.copy(alpha = 0.42f),
+                RIVER_WASH.copy(alpha = 0.64f),
+                RIVER_WASH.copy(alpha = 0.42f),
+                Color.Transparent
+            ),
+            startY = top - cellH * 0.08f,
+            endY = bottom + cellH * 0.08f
+        ),
+        topLeft = Offset(left, top - cellH * 0.08f),
+        size = Size(width, cellH * 1.16f),
+        cornerRadius = CornerRadius(cellH * 0.28f, cellH * 0.28f)
     )
-    for (i in 0..3) {
-        val waveY = y - cellH * 0.25f + i * cellH * 0.16f
-        val waveOffset = (phase + i * 0.24f) % 1f
+
+    drawOval(
+        color = RIVER_DEEP.copy(alpha = 0.12f),
+        topLeft = Offset(left + cellW * 0.28f, y - cellH * 0.42f),
+        size = Size(cellW * 2.2f, cellH * 0.72f)
+    )
+    drawOval(
+        color = RIVER_DEEP.copy(alpha = 0.10f),
+        topLeft = Offset(left + cellW * 4.9f, y - cellH * 0.34f),
+        size = Size(cellW * 2.35f, cellH * 0.64f)
+    )
+
+    for (i in 0..6) {
+        val waveY = top + cellH * (0.18f + i * 0.105f)
+        val drift = (((phase + i * 0.19f) % 1f) - 0.5f) * cellW * 0.54f
         drawWave(
-            startX = offsetX + cellW * (0.35f + waveOffset * 0.38f),
-            endX = offsetX + cellW * 7.65f,
+            startX = left + cellW * 0.22f + drift,
+            endX = left + width - cellW * 0.22f + drift,
             y = waveY,
-            amplitude = cellH * 0.045f,
-            wavelength = cellW * 0.92f,
-            color = RIVER_LINE.copy(alpha = 0.42f + i * 0.08f),
-            strokeWidth = 1.6f
+            amplitude = cellH * (0.03f + (i % 3) * 0.012f),
+            wavelength = cellW * (0.72f + (i % 2) * 0.18f),
+            color = RIVER_LINE.copy(alpha = 0.28f + i * 0.045f),
+            strokeWidth = if (i % 2 == 0) 2.2f else 1.4f
         )
     }
+
+    val foamColor = Color(0xFFEAD2A2)
+    for (i in 0..10) {
+        val x = left + cellW * (0.55f + i * 0.68f) + (((phase + i * 0.13f) % 1f) - 0.5f) * cellW * 0.24f
+        val cy = top + cellH * (0.18f + (i % 4) * 0.19f)
+        drawCircle(
+            color = foamColor.copy(alpha = 0.18f + (i % 3) * 0.04f),
+            radius = cellW * (0.026f + (i % 2) * 0.011f),
+            center = Offset(x, cy)
+        )
+    }
+
     drawContext.canvas.nativeCanvas.apply {
-        val paint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#6F3914")
-            textSize = cellH * 0.55f
+        val shadowPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#7A3F17")
+            textSize = cellH * 0.56f
             textAlign = android.graphics.Paint.Align.CENTER
             isFakeBoldText = true
             letterSpacing = 0.08f
             isAntiAlias = true
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
         }
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#4D2710")
+            textSize = cellH * 0.56f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+            letterSpacing = 0.08f
+            isAntiAlias = true
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
+        }
+        shadowPaint.alpha = 70
+        drawText("楚  河", offsetX + 2 * cellW + 1.8f, y + cellH * 0.18f + 1.8f, shadowPaint)
+        drawText("汉  界", offsetX + 6 * cellW + 1.8f, y + cellH * 0.18f + 1.8f, shadowPaint)
         drawText("楚  河", offsetX + 2 * cellW, y + cellH * 0.18f, paint)
         drawText("汉  界", offsetX + 6 * cellW, y + cellH * 0.18f, paint)
     }
@@ -424,7 +477,7 @@ private fun boardPositionCenter(
     y = offsetY + toDisplayRow(row, isFlipped) * cellH
 )
 
-private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Float) {
+private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Float, isFlipped: Boolean) {
     val color = if (piece.side == Side.RED) RED_COLOR else BLACK_COLOR
     val shadowColor = Color(0x55000000)
 
@@ -465,6 +518,12 @@ private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Floa
             isAntiAlias = true
         }
         val textY = cy - (paint.descent() + paint.ascent()) / 2
+        val rotateText = (piece.side == Side.BLACK) != isFlipped
+        save()
+        if (rotateText) {
+            rotate(180f, cx, cy)
+        }
         drawText(piece.char, cx, textY, paint)
+        restore()
     }
 }

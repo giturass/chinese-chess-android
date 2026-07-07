@@ -163,6 +163,13 @@ class GameViewModel : ViewModel() {
         updateStatusMessage(_gameState.value)
     }
 
+    fun toggleBoardFlipped() {
+        val state = _gameState.value
+        _gameState.value = state.copy(isFlipped = !state.isFlipped)
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+    }
+
     fun resign(side: Side? = null) {
         gameVersion++
         _isAiThinking.value = false

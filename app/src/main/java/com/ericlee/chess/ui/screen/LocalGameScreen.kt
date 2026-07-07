@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +36,39 @@ fun LocalGameScreen(
     val selectedPiece by viewModel.selectedPiece.collectAsState()
     val legalMoves by viewModel.legalMoves.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+    var pendingAction by remember { mutableStateOf<PendingLocalAction?>(null) }
+    val topSide = if (state.isFlipped) Side.RED else Side.BLACK
+    val bottomSide = topSide.opposite()
+
+    pendingAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingAction = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        when (action.type) {
+                            LocalActionType.UNDO -> viewModel.undoMove(action.requester)
+                            LocalActionType.RESIGN -> viewModel.resign(action.requester)
+                        }
+                        pendingAction = null
+                    }
+                ) {
+                    Text("同意")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAction = null }) {
+                    Text("不同意")
+                }
+            },
+            title = { Text("${action.type.label}请求") },
+            text = {
+                Text(
+                    "${sideLabel(action.requester)}请求${action.type.label}，需要${sideLabel(action.requester.opposite())}同意。"
+                )
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -46,8 +80,23 @@ fun LocalGameScreen(
                     }
                 },
                 actions = {
+                    FilledTonalButton(
+                        onClick = {
+                            pendingAction = null
+                            viewModel.toggleBoardFlipped()
+                        },
+                        modifier = Modifier.padding(end = 6.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.SwapVert, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("调转")
+                    }
                     Button(
-                        onClick = { viewModel.startGame(GameMode.LOCAL) },
+                        onClick = {
+                            pendingAction = null
+                            viewModel.startGame(GameMode.LOCAL, flipped = state.isFlipped)
+                        },
                         modifier = Modifier.padding(end = 8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
@@ -77,11 +126,11 @@ fun LocalGameScreen(
             )
 
             PlayerActionPanel(
-                side = Side.BLACK,
-                canUndo = state.lastMoveSide == Side.BLACK,
+                side = topSide,
+                canUndo = state.lastMoveSide == topSide,
                 canResign = state.status == GameStatus.PLAYING,
-                onUndo = { viewModel.undoMove(Side.BLACK) },
-                onResign = { viewModel.resign(Side.BLACK) },
+                onUndo = { pendingAction = PendingLocalAction(topSide, LocalActionType.UNDO) },
+                onResign = { pendingAction = PendingLocalAction(topSide, LocalActionType.RESIGN) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -93,16 +142,16 @@ fun LocalGameScreen(
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,
-                isFlipped = false,
+                isFlipped = state.isFlipped,
                 onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
             )
 
             PlayerActionPanel(
-                side = Side.RED,
-                canUndo = state.lastMoveSide == Side.RED,
+                side = bottomSide,
+                canUndo = state.lastMoveSide == bottomSide,
                 canResign = state.status == GameStatus.PLAYING,
-                onUndo = { viewModel.undoMove(Side.RED) },
-                onResign = { viewModel.resign(Side.RED) },
+                onUndo = { pendingAction = PendingLocalAction(bottomSide, LocalActionType.UNDO) },
+                onResign = { pendingAction = PendingLocalAction(bottomSide, LocalActionType.RESIGN) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -110,6 +159,18 @@ fun LocalGameScreen(
         }
     }
 }
+
+private enum class LocalActionType(val label: String) {
+    UNDO("悔棋"),
+    RESIGN("认输")
+}
+
+private data class PendingLocalAction(
+    val requester: Side,
+    val type: LocalActionType
+)
+
+private fun sideLabel(side: Side): String = if (side == Side.RED) "红方" else "黑方"
 
 @Composable
 private fun PlayerActionPanel(
@@ -120,7 +181,7 @@ private fun PlayerActionPanel(
     onResign: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val sideName = if (side == Side.RED) "红方" else "黑方"
+    val sideName = sideLabel(side)
     val accent = if (side == Side.RED) Color(0xFFB3261E) else Color(0xFF2B2118)
 
     Card(
