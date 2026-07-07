@@ -111,7 +111,7 @@ fun ChessBoard(
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         if (lastMove != null) {
-            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped)
+            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, pulse)
         }
 
         if (selectedPiece != null) {
@@ -410,24 +410,93 @@ private fun DrawScope.drawMoveEffect(
     offsetY: Float,
     cellW: Float,
     cellH: Float,
-    isFlipped: Boolean
+    isFlipped: Boolean,
+    pulse: Float
 ) {
     val from = boardPositionCenter(move.fromRow, move.fromCol, offsetX, offsetY, cellW, cellH, isFlipped)
     val to = boardPositionCenter(move.toRow, move.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
-    val color = if (move.side == Side.RED) RED_COLOR else Color(0xFF3A2D22)
+    val color = if (move.side == Side.RED) RED_COLOR else Color(0xFF231711)
+    val glow = if (move.side == Side.RED) Color(0xFFDC3B2E) else Color(0xFF0F0B08)
 
     drawLine(
-        color = color.copy(alpha = 0.34f),
+        color = glow.copy(alpha = 0.44f),
         start = from,
         end = to,
-        strokeWidth = cellW * 0.08f
+        strokeWidth = cellW * 0.14f
     )
-    drawCircle(color = LAST_MOVE_COLOR, radius = cellW * 0.48f, center = from)
-    drawCircle(color = color.copy(alpha = 0.36f), radius = cellW * 0.48f, center = to)
-    drawCircle(color = color, radius = cellW * 0.37f, center = to, style = Stroke(width = 3.5f))
+    drawLine(
+        color = Color(0xFFE8C277).copy(alpha = 0.62f),
+        start = from,
+        end = to,
+        strokeWidth = cellW * 0.045f
+    )
+    drawMoveArrowHead(from, to, glow.copy(alpha = 0.78f), cellW * 0.22f)
+
+    drawCircle(color = LAST_MOVE_COLOR.copy(alpha = 0.82f), radius = cellW * 0.52f, center = from)
+    drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.66f * pulse, center = to)
+    drawCircle(color = Color(0xFFE8C277).copy(alpha = 0.72f), radius = cellW * 0.53f, center = to, style = Stroke(width = 5f))
+    drawCircle(color = color, radius = cellW * 0.4f * pulse, center = to, style = Stroke(width = 4.5f))
+    drawLastMoveLabel(move.side, to, cellW, cellH)
 
     if (move.captured != null) {
         drawCaptureBurst(to.x, to.y, cellW * 0.43f, CHECK_COLOR, 1f)
+    }
+}
+
+private fun DrawScope.drawMoveArrowHead(from: Offset, to: Offset, color: Color, size: Float) {
+    val dx = to.x - from.x
+    val dy = to.y - from.y
+    if (dx == 0f && dy == 0f) return
+
+    val angle = kotlin.math.atan2(dy, dx)
+    val left = angle + Math.PI.toFloat() * 0.82f
+    val right = angle - Math.PI.toFloat() * 0.82f
+    val path = Path().apply {
+        moveTo(to.x, to.y)
+        lineTo(
+            to.x + kotlin.math.cos(left).toFloat() * size,
+            to.y + kotlin.math.sin(left).toFloat() * size
+        )
+        lineTo(
+            to.x + kotlin.math.cos(right).toFloat() * size,
+            to.y + kotlin.math.sin(right).toFloat() * size
+        )
+        close()
+    }
+    drawPath(path = path, color = color)
+}
+
+private fun DrawScope.drawLastMoveLabel(side: Side, center: Offset, cellW: Float, cellH: Float) {
+    val label = if (side == Side.RED) "红方出子" else "黑方出子"
+    val labelColor = if (side == Side.RED) RED_COLOR else BLACK_COLOR
+    val labelWidth = cellW * 1.78f
+    val labelHeight = cellH * 0.34f
+    val x = (center.x - labelWidth / 2f).coerceIn(cellW * 0.12f, size.width - labelWidth - cellW * 0.12f)
+    val y = (center.y - cellH * 0.78f).coerceIn(cellH * 0.16f, size.height - labelHeight - cellH * 0.16f)
+
+    drawRoundRect(
+        color = labelColor.copy(alpha = 0.88f),
+        topLeft = Offset(x, y),
+        size = Size(labelWidth, labelHeight),
+        cornerRadius = CornerRadius(labelHeight / 2f, labelHeight / 2f)
+    )
+    drawRoundRect(
+        color = Color(0xFFE8C277).copy(alpha = 0.95f),
+        topLeft = Offset(x, y),
+        size = Size(labelWidth, labelHeight),
+        cornerRadius = CornerRadius(labelHeight / 2f, labelHeight / 2f),
+        style = Stroke(width = 1.4f)
+    )
+
+    drawContext.canvas.nativeCanvas.apply {
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#FFF2C7")
+            textSize = labelHeight * 0.56f
+            textAlign = android.graphics.Paint.Align.CENTER
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        drawText(label, x + labelWidth / 2f, y + labelHeight / 2f - (paint.descent() + paint.ascent()) / 2, paint)
     }
 }
 

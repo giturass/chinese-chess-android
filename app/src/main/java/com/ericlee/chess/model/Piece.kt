@@ -1,12 +1,12 @@
 package com.ericlee.chess.model
 
 enum class PieceType(val label: String) {
-    KING("帅"),      // 帅/将
-    ADVISOR("士"),   // 士
-    ELEPHANT("象"),  // 相/象
-    ROOK("车"),      // 车
-    KNIGHT("马"),    // 马
-    CANNON("炮"),    // 炮
+    KING("帥"),      // 帥/將
+    ADVISOR("仕"),   // 仕/士
+    ELEPHANT("相"),  // 相/象
+    ROOK("車"),      // 俥/車
+    KNIGHT("馬"),    // 傌/馬
+    CANNON("炮"),    // 炮/砲
     PAWN("兵")       // 兵/卒
 }
 
@@ -15,12 +15,12 @@ enum class Side {
 
     fun opposite(): Side = if (this == RED) BLACK else RED
 
-    fun kingChar(): String = if (this == RED) "帅" else "将"
-    fun advisorChar(): String = "士"
+    fun kingChar(): String = if (this == RED) "帥" else "將"
+    fun advisorChar(): String = if (this == RED) "仕" else "士"
     fun elephantChar(): String = if (this == RED) "相" else "象"
-    fun rookChar(): String = "车"
-    fun knightChar(): String = "马"
-    fun cannonChar(): String = "炮"
+    fun rookChar(): String = if (this == RED) "俥" else "車"
+    fun knightChar(): String = if (this == RED) "傌" else "馬"
+    fun cannonChar(): String = if (this == RED) "炮" else "砲"
     fun pawnChar(): String = if (this == RED) "兵" else "卒"
 
     fun pieceChar(type: PieceType): String = when (type) {

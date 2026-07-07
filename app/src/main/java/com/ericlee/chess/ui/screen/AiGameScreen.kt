@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,8 +47,18 @@ fun AiGameScreen(
                 },
                 actions = {
                     if (gameStarted) {
+                        FilledTonalButton(
+                            onClick = { viewModel.toggleBoardFlipped() },
+                            enabled = !isAiThinking,
+                            modifier = Modifier.padding(end = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.SwapVert, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("调转")
+                        }
                         Button(
-                            onClick = { viewModel.startGame(GameMode.AI, difficulty) },
+                            onClick = { viewModel.startGame(GameMode.AI, difficulty, flipped = state.isFlipped) },
                             enabled = !isAiThinking,
                             modifier = Modifier.padding(end = 8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -70,7 +81,7 @@ fun AiGameScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (!gameStarted) {
-                DifficultySelector(difficulty = difficulty) {
+                DifficultySelector {
                     difficulty = it
                     viewModel.startGame(GameMode.AI, it)
                     gameStarted = true
@@ -128,7 +139,6 @@ fun AiGameScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DifficultySelector(
-    difficulty: Int,
     onSelect: (Int) -> Unit
 ) {
     val levels = listOf(
@@ -159,7 +169,6 @@ private fun DifficultySelector(
         Spacer(modifier = Modifier.height(24.dp))
 
         for (level in levels) {
-            val selected = level.value == difficulty
             ElevatedCard(
                 onClick = { onSelect(level.value) },
                 modifier = Modifier
@@ -167,13 +176,9 @@ private fun DifficultySelector(
                     .padding(vertical = 6.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = if (selected) {
-                        Color(0xFFFFE2B7)
-                    } else {
-                        Color(0xFFFFF7E8)
-                    }
+                    containerColor = Color(0xFFFFF7E8)
                 ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = if (selected) 5.dp else 2.dp)
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
                     modifier = Modifier
