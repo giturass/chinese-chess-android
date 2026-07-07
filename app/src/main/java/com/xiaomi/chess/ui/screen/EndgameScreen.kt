@@ -81,6 +81,7 @@ fun EndgameScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GameContent(
     puzzle: EndgamePuzzle,

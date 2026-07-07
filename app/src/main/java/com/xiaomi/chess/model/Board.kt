@@ -103,10 +103,10 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
                     kotlin.math.abs(dr) == 1 && kotlin.math.abs(dc) == 1
             }
             PieceType.ELEPHANT -> {
-                val baseRow = if (piece.side == Side.RED) 9 else 0
+                val validRowRange = if (piece.side == Side.RED) 5..9 else 0..4
                 val eyeRow = piece.row + dr / 2
                 val eyeCol = piece.col + dc / 2
-                targetRow in if (piece.side == Side.RED) 5..9 else 0..4 &&
+                targetRow in validRowRange &&
                     kotlin.math.abs(dr) == 2 && kotlin.math.abs(dc) == 2 &&
                     getPiece(eyeRow, eyeCol) == null
             }

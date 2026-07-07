@@ -126,7 +126,7 @@ class GameViewModel : ViewModel() {
             GameStatus.PLAYING -> {
                 val sideName = if (state.currentSide == Side.RED) "红方" else "黑方"
                 val check = if (state.isInCheck) "（将军！）" else ""
-                "$sideName走棋$check"
+                "${sideName}走棋${check}"
             }
         }
     }
