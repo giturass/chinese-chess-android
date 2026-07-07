@@ -1,0 +1,161 @@
+package com.xiaomi.chess.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.xiaomi.chess.engine.ChessEngine
+import com.xiaomi.chess.model.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class GameViewModel : ViewModel() {
+
+    private val _gameState = MutableStateFlow(GameState())
+    val gameState: StateFlow<GameState> = _gameState.asStateFlow()
+
+    private val _selectedPiece = MutableStateFlow<Piece?>(null)
+    val selectedPiece: StateFlow<Piece?> = _selectedPiece.asStateFlow()
+
+    private val _legalMoves = MutableStateFlow<List<Move>>(emptyList())
+    val legalMoves: StateFlow<List<Move>> = _legalMoves.asStateFlow()
+
+    private val _isAiThinking = MutableStateFlow(false)
+    val isAiThinking: StateFlow<Boolean> = _isAiThinking.asStateFlow()
+
+    private val _statusMessage = MutableStateFlow("")
+    val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
+
+    private var engine: ChessEngine? = null
+
+    fun startGame(mode: GameMode, difficulty: Int = 3, flipped: Boolean = false) {
+        _gameState.value = GameState(mode = mode, aiDifficulty = difficulty, isFlipped = flipped)
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _isAiThinking.value = false
+        _statusMessage.value = when (mode) {
+            GameMode.AI -> "人机对战 - 你执红方"
+            GameMode.LOCAL -> "本地双人对战"
+            GameMode.ENDGAME -> "残局挑战"
+        }
+        if (mode == GameMode.AI) {
+            engine = ChessEngine(Side.BLACK)
+        }
+    }
+
+    fun loadEndgame(puzzle: EndgamePuzzle) {
+        val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
+        _gameState.value = GameState(
+            board = board,
+            currentSide = Side.RED,
+            mode = GameMode.ENDGAME,
+            isFlipped = false
+        )
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _statusMessage.value = "残局: ${puzzle.name}"
+    }
+
+    fun onPositionClick(row: Int, col: Int) {
+        val state = _gameState.value
+        if (state.status != GameStatus.PLAYING) return
+        if (_isAiThinking.value) return
+
+        // In AI mode, only allow clicks when it's human's turn (RED)
+        if (state.mode == GameMode.AI && state.currentSide != Side.RED) return
+
+        val clickedPiece = state.board.getPiece(row, col)
+
+        if (_selectedPiece.value != null) {
+            val move = _legalMoves.value.find { it.toRow == row && it.toCol == col }
+            if (move != null) {
+                executeMove(move)
+                return
+            }
+        }
+
+        if (clickedPiece != null && clickedPiece.side == state.currentSide) {
+            _selectedPiece.value = clickedPiece
+            _legalMoves.value = state.board.getLegalMovesForPiece(clickedPiece)
+        } else {
+            _selectedPiece.value = null
+            _legalMoves.value = emptyList()
+        }
+    }
+
+    private fun executeMove(move: Move) {
+        val newState = _gameState.value.makeMove(move)
+        _gameState.value = newState
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+
+        updateStatusMessage(newState)
+
+        if (newState.status == GameStatus.PLAYING && newState.mode == GameMode.AI && newState.currentSide == Side.BLACK) {
+            triggerAiMove()
+        }
+    }
+
+    private fun triggerAiMove() {
+        _isAiThinking.value = true
+        val state = _gameState.value
+        val depth = state.aiDifficulty
+
+        viewModelScope.launch {
+            val move = withContext(Dispatchers.Default) {
+                engine?.findBestMove(state.board, depth)
+            }
+
+            if (move != null) {
+                val newState = _gameState.value.makeMove(move)
+                _gameState.value = newState
+                updateStatusMessage(newState)
+            }
+            _isAiThinking.value = false
+        }
+    }
+
+    private fun updateStatusMessage(state: GameState) {
+        _statusMessage.value = when (state.status) {
+            GameStatus.RED_WIN -> "红方获胜！"
+            GameStatus.BLACK_WIN -> "黑方获胜！"
+            GameStatus.STALEMATE -> "和棋（困毙）"
+            GameStatus.DRAW -> "和棋"
+            GameStatus.PLAYING -> {
+                val sideName = if (state.currentSide == Side.RED) "红方" else "黑方"
+                val check = if (state.isInCheck) "（将军！）" else ""
+                "$sideName走棋$check"
+            }
+        }
+    }
+
+    fun undoMove() {
+        val state = _gameState.value
+        if (state.moveHistory.isEmpty()) return
+        if (_isAiThinking.value) return
+
+        if (state.mode == GameMode.AI) {
+            // Undo both AI and human move
+            var s = state.undoLastMove()
+            if (s.moveHistory.isNotEmpty() && s.currentSide == Side.BLACK) {
+                s = s.undoLastMove()
+            }
+            _gameState.value = s
+        } else {
+            _gameState.value = state.undoLastMove()
+        }
+
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        updateStatusMessage(_gameState.value)
+    }
+
+    fun resign() {
+        val state = _gameState.value
+        val winner = if (state.currentSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
+        _gameState.value = state.copy(status = winner)
+        updateStatusMessage(_gameState.value)
+    }
+}
