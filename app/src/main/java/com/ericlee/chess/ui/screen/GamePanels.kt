@@ -154,8 +154,11 @@ fun AiControlPanel(
 fun OnlineControlPanel(
     state: GameState,
     statusMessage: String,
-    playerSide: Side,
+    side: Side,
     connectionText: String,
+    showActions: Boolean,
+    canUndo: Boolean,
+    onUndo: () -> Unit,
     onDraw: () -> Unit,
     onResign: () -> Unit,
     modifier: Modifier = Modifier
@@ -163,30 +166,99 @@ fun OnlineControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
-        accentSide = playerSide,
-        metaText = "${playerSide.displayName()} · $connectionText",
+        accentSide = side,
+        metaText = "${side.displayName()} · $connectionText",
         modifier = modifier
     ) {
+        if (showActions) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onUndo,
+                    enabled = canUndo,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("悔棋", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onDraw,
+                    enabled = state.status == GameStatus.PLAYING,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("求和", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onResign,
+                    enabled = state.status == GameStatus.PLAYING,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("认输", fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EndgameControlPanel(
+    state: GameState,
+    statusMessage: String,
+    puzzleDescription: String,
+    difficulty: Int,
+    onUndo: () -> Unit,
+    onHint: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GameInfoPanel(
+        state = state,
+        statusMessage = statusMessage,
+        accentSide = Side.RED,
+        metaText = "难度 $difficulty",
+        modifier = modifier
+    ) {
+        Text(
+            text = puzzleDescription,
+            fontSize = 13.sp,
+            color = Color(0xFF352112).copy(alpha = 0.78f)
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedButton(
-                onClick = onDraw,
-                enabled = state.status == GameStatus.PLAYING,
+                onClick = onUndo,
+                enabled = state.moveHistory.isNotEmpty() && state.status == GameStatus.PLAYING,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("求和", fontSize = 13.sp)
+                Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("悔棋", fontSize = 13.sp)
             }
             OutlinedButton(
-                onClick = onResign,
+                onClick = onHint,
                 enabled = state.status == GameStatus.PLAYING,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("认输", fontSize = 13.sp)
+                Text("提示", fontSize = 13.sp)
+            }
+            OutlinedButton(
+                onClick = onReset,
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text("重置", fontSize = 13.sp)
             }
         }
     }

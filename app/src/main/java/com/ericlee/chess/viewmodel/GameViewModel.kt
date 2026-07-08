@@ -42,6 +42,7 @@ class GameViewModel : ViewModel() {
     private var gameVersion = 0
     private var onlineClient: OnlineGameClient? = null
     private var onlinePollJob: Job? = null
+    private var onlineFlippedOverride: Boolean? = null
 
     fun startGame(
         mode: GameMode,
@@ -204,6 +205,9 @@ class GameViewModel : ViewModel() {
 
     fun toggleBoardFlipped() {
         val state = _gameState.value
+        if (state.mode == GameMode.ONLINE) {
+            onlineFlippedOverride = !state.isFlipped
+        }
         _gameState.value = state.copy(isFlipped = !state.isFlipped)
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
@@ -238,7 +242,7 @@ class GameViewModel : ViewModel() {
         _legalMoves.value = emptyList()
         _statusMessage.value = if (requester != null) {
             val sideName = if (requester == Side.RED) "红方" else "黑方"
-            "${sideName}提出求和，双方同意和棋"
+            "${sideName}请求求和，双方同意和棋"
         } else {
             "双方同意和棋"
         }
@@ -272,6 +276,7 @@ class GameViewModel : ViewModel() {
         onlinePollJob?.cancel()
         gameVersion++
         val version = gameVersion
+        onlineFlippedOverride = null
         onlineClient = OnlineGameClient(cleanedServerUrl)
         _gameState.value = GameState(mode = GameMode.ONLINE)
         _selectedPiece.value = null
@@ -300,6 +305,7 @@ class GameViewModel : ViewModel() {
                     side = snapshot.side,
                     connected = true,
                     playerCount = snapshot.playerCount,
+                    pendingAction = snapshot.pendingAction,
                     message = snapshot.message.ifBlank { "已连接" }
                 )
                 startOnlinePolling()
@@ -323,8 +329,16 @@ class GameViewModel : ViewModel() {
         _onlineSession.value = OnlineSessionState()
     }
 
+    fun requestOnlineUndo() {
+        sendOnlineAction("undo")
+    }
+
     fun resetOnlineGame() {
         sendOnlineAction("reset")
+    }
+
+    fun respondOnlineRequest(accepted: Boolean) {
+        sendOnlineAction(if (accepted) "accept" else "reject")
     }
 
     private fun sendOnlineMove(move: Move) {
@@ -347,6 +361,7 @@ class GameViewModel : ViewModel() {
                     connected = true,
                     connecting = false,
                     playerCount = snapshot.playerCount,
+                    pendingAction = snapshot.pendingAction,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
@@ -373,6 +388,7 @@ class GameViewModel : ViewModel() {
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
                     playerCount = snapshot.playerCount,
+                    pendingAction = snapshot.pendingAction,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
@@ -409,6 +425,7 @@ class GameViewModel : ViewModel() {
                 connected = true,
                 connecting = false,
                 playerCount = snapshot.playerCount,
+                pendingAction = snapshot.pendingAction,
                 message = snapshot.message.ifBlank { "已连接" }
             )
         }.onFailure { error ->
@@ -423,7 +440,7 @@ class GameViewModel : ViewModel() {
         val playerSide = snapshot.side
         var state = GameState(
             mode = GameMode.ONLINE,
-            isFlipped = playerSide == Side.BLACK,
+            isFlipped = onlineFlippedOverride ?: (playerSide == Side.BLACK),
             humanSide = playerSide
         )
         snapshot.moves.forEach { moveDto ->
@@ -441,6 +458,8 @@ class GameViewModel : ViewModel() {
         updateStatusMessage(state)
         if (state.status == GameStatus.PLAYING && snapshot.playerCount < 2) {
             _statusMessage.value = "等待对手加入"
+        } else if (state.status == GameStatus.PLAYING && snapshot.pendingAction != null) {
+            _statusMessage.value = snapshot.message
         }
     }
 

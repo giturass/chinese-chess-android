@@ -35,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.ericlee.chess.model.GameMode
-import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.woodTexture
@@ -78,15 +77,15 @@ fun LocalGameScreen(
                         pendingAction = null
                     }
                 ) {
-                    Text(if (action.type == LocalActionType.RESIGN) "确认" else "同意")
+                    Text("同意")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingAction = null }) {
-                    Text(if (action.type == LocalActionType.RESIGN) "取消" else "拒绝")
+                    Text("拒绝")
                 }
             },
-            title = { Text("请${viewer.displayName()}确认") },
+            title = { Text(action.title()) },
             text = { Text(action.message()) }
         )
     }
@@ -118,29 +117,6 @@ fun LocalGameScreen(
             },
             title = { Text(action.title) },
             text = { Text(action.message) }
-        )
-    }
-
-    if (state.status != GameStatus.PLAYING) {
-        AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingAction = null
-                        viewModel.startGame(GameMode.LOCAL, flipped = state.isFlipped)
-                    }
-                ) {
-                    Text("进入新局")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onBack) {
-                    Text("返回首页")
-                }
-            },
-            title = { Text("棋局结束") },
-            text = { Text("$statusMessage\n是否进入新局？") }
         )
     }
 
@@ -252,13 +228,18 @@ private data class PendingLocalAction(
     val type: LocalActionType
 ) {
     fun viewerSide(): Side = when (type) {
-        LocalActionType.UNDO, LocalActionType.DRAW -> requester.opposite()
-        LocalActionType.RESIGN -> requester
+        LocalActionType.UNDO, LocalActionType.DRAW, LocalActionType.RESIGN -> requester.opposite()
     }
 
     fun message(): String = when (type) {
         LocalActionType.UNDO -> "${requester.displayName()}请求悔棋，请${viewerSide().displayName()}确认。"
-        LocalActionType.DRAW -> "${requester.displayName()}提出求和，请${viewerSide().displayName()}确认。"
-        LocalActionType.RESIGN -> "${requester.displayName()}确认认输后，${requester.opposite().displayName()}获胜。"
+        LocalActionType.DRAW -> "${requester.displayName()}请求求和，请${viewerSide().displayName()}确认。"
+        LocalActionType.RESIGN -> "${requester.displayName()}请求认输，请${viewerSide().displayName()}确认。"
+    }
+
+    fun title(): String = when (type) {
+        LocalActionType.UNDO -> "对方请求悔棋"
+        LocalActionType.DRAW -> "对方请求求和"
+        LocalActionType.RESIGN -> "对方请求认输"
     }
 }

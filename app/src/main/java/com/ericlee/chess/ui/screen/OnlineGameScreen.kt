@@ -1,5 +1,6 @@
 package com.ericlee.chess.ui.screen
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -62,9 +65,18 @@ fun OnlineGameScreen(
     val statusMessage by viewModel.statusMessage.collectAsState()
     val session by viewModel.onlineSession.collectAsState()
 
-    var roomId by rememberSaveable { mutableStateOf("") }
-    var serverUrl by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("online_game", Context.MODE_PRIVATE)
+    }
+    var roomId by rememberSaveable {
+        mutableStateOf(prefs.getString("room_id", "").orEmpty())
+    }
+    var serverUrl by rememberSaveable {
+        mutableStateOf(prefs.getString("server_url", "").orEmpty())
+    }
     var confirmExit by remember { mutableStateOf(false) }
+    val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.disconnectOnline() }
@@ -94,28 +106,25 @@ fun OnlineGameScreen(
         )
     }
 
-    if (state.status != GameStatus.PLAYING && session.connected) {
+    if (pendingAction != null) {
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.resetOnlineGame() }
+                    onClick = { viewModel.respondOnlineRequest(accepted = true) }
                 ) {
-                    Text("重新开局")
+                    Text("同意")
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        viewModel.disconnectOnline()
-                        onBack()
-                    }
+                    onClick = { viewModel.respondOnlineRequest(accepted = false) }
                 ) {
-                    Text("返回首页")
+                    Text("拒绝")
                 }
             },
-            title = { Text("棋局结束") },
-            text = { Text(statusMessage) }
+            title = { Text(pendingAction.title) },
+            text = { Text(pendingAction.message) }
         )
     }
 
@@ -130,14 +139,22 @@ fun OnlineGameScreen(
                     }
                 },
                 actions = {
-                    if (session.roomId.isNotBlank()) {
+                    if (session.connected) {
                         FilledTonalButton(
-                            onClick = { viewModel.startOnlineGame(session.roomId, session.serverUrl) },
+                            onClick = { viewModel.toggleBoardFlipped() },
+                            modifier = Modifier.padding(end = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.SwapVert, contentDescription = null)
+                            Text("调转")
+                        }
+                        Button(
+                            onClick = { viewModel.resetOnlineGame() },
                             modifier = Modifier.padding(end = 8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
-                            Text("重连")
+                            Text("重置")
                         }
                     }
                 },
@@ -156,15 +173,31 @@ fun OnlineGameScreen(
                 roomId = roomId,
                 connecting = session.connecting,
                 message = session.message,
-                onServerUrlChange = { serverUrl = it },
-                onRoomIdChange = { roomId = it },
-                onGenerateRoomId = { roomId = generateRoomId() },
-                onJoin = { viewModel.startOnlineGame(roomId, serverUrl) },
+                onServerUrlChange = {
+                    serverUrl = it
+                    prefs.edit().putString("server_url", it).apply()
+                },
+                onRoomIdChange = {
+                    roomId = it
+                    prefs.edit().putString("room_id", it).apply()
+                },
+                onGenerateRoomId = {
+                    roomId = generateRoomId()
+                    prefs.edit().putString("room_id", roomId).apply()
+                },
+                onJoin = {
+                    prefs.edit()
+                        .putString("server_url", serverUrl)
+                        .putString("room_id", roomId)
+                        .apply()
+                    viewModel.startOnlineGame(roomId, serverUrl)
+                },
                 modifier = Modifier.padding(padding)
             )
         } else {
             val playerSide = session.side ?: Side.RED
-            val topSide = playerSide.opposite()
+            val topSide = if (state.isFlipped) Side.RED else Side.BLACK
+            val bottomSide = topSide.opposite()
             val connectionText = if (session.playerCount < 2) "等待对手" else session.message
 
             Box(
@@ -179,10 +212,16 @@ fun OnlineGameScreen(
                         .padding(horizontal = 4.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    GameStatusBanner(
+                    OnlineControlPanel(
                         state = state,
-                        statusMessage = "对手：${topSide.displayName()}",
-                        metaText = "房间 ${session.roomId}",
+                        statusMessage = statusMessage,
+                        side = topSide,
+                        connectionText = if (topSide == playerSide) "你 · $connectionText" else "对手 · 房间 ${session.roomId}",
+                        showActions = topSide == playerSide,
+                        canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
+                        onUndo = { viewModel.requestOnlineUndo() },
+                        onDraw = { viewModel.agreeDraw(playerSide) },
+                        onResign = { viewModel.resign(playerSide) },
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     )
 
@@ -203,8 +242,11 @@ fun OnlineGameScreen(
                     OnlineControlPanel(
                         state = state,
                         statusMessage = statusMessage,
-                        playerSide = playerSide,
-                        connectionText = connectionText,
+                        side = bottomSide,
+                        connectionText = if (bottomSide == playerSide) "你 · $connectionText" else "对手 · 房间 ${session.roomId}",
+                        showActions = bottomSide == playerSide,
+                        canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
+                        onUndo = { viewModel.requestOnlineUndo() },
                         onDraw = { viewModel.agreeDraw(playerSide) },
                         onResign = { viewModel.resign(playerSide) },
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)

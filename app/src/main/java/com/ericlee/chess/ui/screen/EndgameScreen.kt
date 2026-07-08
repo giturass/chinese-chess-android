@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +17,7 @@ import com.ericlee.chess.data.EndgameRepository
 import com.ericlee.chess.model.EndgamePuzzle
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.ui.theme.woodTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -71,6 +71,7 @@ fun EndgameScreen(
         }
     } else {
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = { Text("残局挑战") },
@@ -78,27 +79,37 @@ fun EndgameScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.Default.ArrowBack, "返回")
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xAA2D1A0A),
+                        titleContentColor = Color(0xFFFFE4A6),
+                        navigationIconContentColor = Color(0xFFFFE4A6)
+                    )
                 )
             }
         ) { padding ->
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .battlefieldTexture()
                     .padding(padding)
-                    .woodTexture()
-                    .padding(16.dp)
             ) {
-                items(puzzles) { puzzle ->
-                    PuzzleCard(
-                        puzzle = puzzle,
-                        onClick = {
-                            showHint = false
-                            selectedPuzzle = puzzle
-                            viewModel.loadEndgame(puzzle)
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    items(puzzles) { puzzle ->
+                        PuzzleCard(
+                            puzzle = puzzle,
+                            onClick = {
+                                showHint = false
+                                selectedPuzzle = puzzle
+                                viewModel.loadEndgame(puzzle)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -120,6 +131,7 @@ private fun GameContent(
     onShowHint: () -> Unit
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(puzzle.name) },
@@ -128,7 +140,12 @@ private fun GameContent(
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
-                actions = {}
+                actions = {},
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xAA2D1A0A),
+                    titleContentColor = Color(0xFFFFE4A6),
+                    navigationIconContentColor = Color(0xFFFFE4A6)
+                )
             )
         }
     ) { padding ->
@@ -140,37 +157,19 @@ private fun GameContent(
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            GameStatusBanner(
+            EndgameControlPanel(
                 state = state,
                 statusMessage = statusMessage,
-                metaText = "难度 ${puzzle.difficulty}",
+                puzzleDescription = puzzle.description,
+                difficulty = puzzle.difficulty,
+                onUndo = onUndo,
+                onHint = onShowHint,
+                onReset = onReset,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp)
             )
 
-            // Puzzle info
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = puzzle.description,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "难度: ${"★".repeat(puzzle.difficulty)}${"☆".repeat(5 - puzzle.difficulty)}",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            // Chess board
             ChessBoard(
                 board = state.board,
                 currentSide = state.currentSide,
@@ -181,32 +180,6 @@ private fun GameContent(
                 onPositionClick = onPositionClick
             )
 
-            // Control buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                OutlinedButton(
-                    onClick = onUndo,
-                    enabled = state.moveHistory.isNotEmpty(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2F251C))
-                ) {
-                    Icon(Icons.Default.Undo, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("悔棋")
-                }
-
-                OutlinedButton(
-                    onClick = onShowHint,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2F251C))
-                ) {
-                    Text("提示")
-                }
-            }
-
-            // Win/Lose message
             if (state.status != GameStatus.PLAYING) {
                 Card(
                     modifier = Modifier
@@ -229,7 +202,7 @@ private fun GameContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = onReset) {
-                            Text("进入新局")
+                            Text("重置残局")
                         }
                     }
                 }

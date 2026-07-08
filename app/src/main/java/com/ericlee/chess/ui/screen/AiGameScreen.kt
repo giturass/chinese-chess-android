@@ -46,11 +46,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.GameState
-import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Move
 import com.ericlee.chess.model.Piece
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.ui.theme.woodTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -100,32 +100,6 @@ fun AiGameScreen(
         )
     }
 
-    if (gameStarted && state.status != GameStatus.PLAYING) {
-        AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.startGame(
-                            mode = GameMode.AI,
-                            difficulty = difficulty,
-                            flipped = state.isFlipped
-                        )
-                    }
-                ) {
-                    Text("进入新局")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onBack) {
-                    Text("返回首页")
-                }
-            },
-            title = { Text("棋局结束") },
-            text = { Text("$statusMessage\n是否进入新局？") }
-        )
-    }
-
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -167,13 +141,13 @@ fun AiGameScreen(
             )
         }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .woodTexture()
-                .padding(padding)
-        ) {
-            if (!gameStarted) {
+        if (!gameStarted) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .battlefieldTexture()
+                    .padding(padding)
+            ) {
                 DifficultySelector(
                     onSelectDifficulty = {
                         difficulty = it
@@ -185,7 +159,14 @@ fun AiGameScreen(
                     },
                     modifier = Modifier.align(Alignment.Center)
                 )
-            } else {
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .woodTexture()
+                    .padding(padding)
+            ) {
                 AiGameContent(
                     state = state,
                     selectedPiece = selectedPiece,
