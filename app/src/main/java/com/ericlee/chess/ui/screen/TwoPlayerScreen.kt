@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -86,7 +87,7 @@ fun TwoPlayerScreen(
 
                 ModeButton(
                     text = "联机对战",
-                    subtitle = "输入服务器地址和房间号",
+                    subtitle = "输入或生成房间号",
                     onClick = onStartOnlineGame
                 )
             }
@@ -105,6 +106,7 @@ private fun ModeButton(
         modifier = Modifier
             .fillMaxWidth()
             .height(76.dp),
+        shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color(0xCC2D1A0A)
         )

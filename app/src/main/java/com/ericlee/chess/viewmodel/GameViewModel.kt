@@ -264,7 +264,7 @@ class GameViewModel : ViewModel() {
     fun startOnlineGame(
         roomId: String,
         serverUrl: String,
-        preferredSide: Side = Side.RED
+        preferredSide: Side? = null
     ) {
         val cleanedRoomId = roomId.trim()
         val cleanedServerUrl = serverUrl.trim().trimEnd('/')

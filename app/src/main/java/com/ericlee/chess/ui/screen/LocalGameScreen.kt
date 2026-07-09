@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.ui.theme.woodTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -162,7 +163,7 @@ fun LocalGameScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .woodTexture()
+                .then(if (gameStarted) Modifier.woodTexture() else Modifier.battlefieldTexture())
                 .padding(padding)
         ) {
             if (!gameStarted) {

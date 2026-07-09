@@ -110,7 +110,7 @@ fun AiControlPanel(
         statusMessage = statusMessage,
         accentSide = state.humanSide,
         isAiThinking = isAiThinking,
-        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · AlphaZero $difficulty",
+        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · 象眼搜索 $difficulty",
         modifier = modifier
     ) {
         Row(

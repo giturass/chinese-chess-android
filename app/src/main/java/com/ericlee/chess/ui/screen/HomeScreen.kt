@@ -1,14 +1,21 @@
 package com.ericlee.chess.ui.screen
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ericlee.chess.network.OnlineServerConfig
 import com.ericlee.chess.ui.theme.battlefieldTexture
 
 @Composable
@@ -17,11 +24,99 @@ fun HomeScreen(
     onStartTwoPlayerGame: () -> Unit,
     onStartEndgame: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences(OnlineServerConfig.PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    var showSettings by remember { mutableStateOf(false) }
+    var serverUrl by rememberSaveable {
+        mutableStateOf(
+            prefs.getString(
+                OnlineServerConfig.SERVER_URL_KEY,
+                OnlineServerConfig.DEFAULT_SERVER_URL
+            ).orEmpty().ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
+        )
+    }
+    var serverUrlError by remember { mutableStateOf(false) }
+
+    if (showSettings) {
+        AlertDialog(
+            onDismissRequest = { showSettings = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val cleaned = serverUrl.trim().trimEnd('/')
+                            .ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
+                        if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
+                            serverUrlError = true
+                            return@TextButton
+                        }
+                        serverUrl = cleaned
+                        serverUrlError = false
+                        prefs.edit()
+                            .putString(OnlineServerConfig.SERVER_URL_KEY, cleaned)
+                            .apply()
+                        showSettings = false
+                    }
+                ) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            serverUrl = OnlineServerConfig.DEFAULT_SERVER_URL
+                            serverUrlError = false
+                        }
+                    ) {
+                        Text("恢复默认")
+                    }
+                    TextButton(onClick = { showSettings = false }) {
+                        Text("取消")
+                    }
+                }
+            },
+            title = { Text("联机设置") },
+            text = {
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = {
+                        serverUrl = it
+                        serverUrlError = false
+                    },
+                    singleLine = true,
+                    label = { Text("服务器地址") },
+                    isError = serverUrlError,
+                    supportingText = {
+                        if (serverUrlError) {
+                            Text("请输入 http:// 或 https:// 开头的地址")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .battlefieldTexture()
     ) {
+        IconButton(
+            onClick = { showSettings = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(24.dp)
+        ) {
+            Icon(
+                Icons.Default.Settings,
+                contentDescription = "设置",
+                tint = Color(0xFFFFE4A6)
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -37,14 +132,7 @@ fun HomeScreen(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Chinese Chess",
-                fontSize = 16.sp,
-                color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
-            )
-
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.height(56.dp))
 
             MenuButton(
                 text = "人机对战",
@@ -82,6 +170,7 @@ private fun MenuButton(
         modifier = Modifier
             .fillMaxWidth()
             .height(72.dp),
+        shape = RoundedCornerShape(50),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color(0xCC2D1A0A)
         )

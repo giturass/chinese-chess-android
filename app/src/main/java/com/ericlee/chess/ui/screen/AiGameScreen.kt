@@ -10,23 +10,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -359,28 +354,22 @@ private fun DifficultySelector(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             for (level in levels) {
-                ElevatedCard(
+                Button(
                     onClick = { onSelectDifficulty(level.value) },
                     modifier = Modifier
-                        .width(148.dp)
-                        .padding(vertical = 5.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = Color(0xEAF7E5C7)
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                        .fillMaxWidth()
+                        .height(70.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xCC2D1A0A)),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 13.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -389,19 +378,19 @@ private fun DifficultySelector(
                                 text = level.name,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF4A2A13)
+                                color = Color(0xFFFFF0D4)
                             )
                             Text(
                                 text = level.description,
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.66f)
+                                color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
                             )
                         }
                         Text(
                             text = level.stars,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB3261E)
+                            color = Color(0xFFFFE4A6)
                         )
                     }
                 }
