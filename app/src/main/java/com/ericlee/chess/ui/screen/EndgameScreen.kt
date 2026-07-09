@@ -181,6 +181,7 @@ private fun GameContent(
             ChessBoard(
                 board = state.board,
                 currentSide = state.currentSide,
+                status = state.status,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,

@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -25,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -75,8 +79,12 @@ fun OnlineGameScreen(
     var serverUrl by rememberSaveable {
         mutableStateOf(prefs.getString("server_url", "").orEmpty())
     }
+    var preferredSideName by rememberSaveable {
+        mutableStateOf(prefs.getString("preferred_side", "RED").orEmpty())
+    }
     var confirmExit by remember { mutableStateOf(false) }
     val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
+    val preferredSide = if (preferredSideName == "BLACK") Side.BLACK else Side.RED
 
     DisposableEffect(Unit) {
         onDispose { viewModel.disconnectOnline() }
@@ -171,6 +179,7 @@ fun OnlineGameScreen(
             OnlineJoinPanel(
                 serverUrl = serverUrl,
                 roomId = roomId,
+                preferredSide = preferredSide,
                 connecting = session.connecting,
                 message = session.message,
                 onServerUrlChange = {
@@ -185,21 +194,23 @@ fun OnlineGameScreen(
                     roomId = generateRoomId()
                     prefs.edit().putString("room_id", roomId).apply()
                 },
+                onPreferredSideChange = {
+                    preferredSideName = it.name
+                    prefs.edit().putString("preferred_side", it.name).apply()
+                },
                 onJoin = {
                     prefs.edit()
                         .putString("server_url", serverUrl)
                         .putString("room_id", roomId)
+                        .putString("preferred_side", preferredSide.name)
                         .apply()
-                    viewModel.startOnlineGame(roomId, serverUrl)
+                    viewModel.startOnlineGame(roomId, serverUrl, preferredSide)
                 },
                 modifier = Modifier.padding(padding)
             )
         } else {
             val playerSide = session.side ?: Side.RED
-            val topSide = if (state.isFlipped) Side.RED else Side.BLACK
-            val bottomSide = topSide.opposite()
             val connectionState = if (session.playerCount < 2) "等待对手" else session.message.ifBlank { "已连接" }
-            val roomInfo = "房间 ${session.roomId} · $connectionState"
 
             Box(
                 modifier = Modifier
@@ -213,16 +224,9 @@ fun OnlineGameScreen(
                         .padding(horizontal = 4.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    OnlineControlPanel(
-                        state = state,
-                        statusMessage = statusMessage,
-                        side = topSide,
-                        connectionText = if (topSide == playerSide) "你 · $roomInfo" else "对手 · $roomInfo",
-                        showActions = topSide == playerSide,
-                        canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
-                        onUndo = { viewModel.requestOnlineUndo() },
-                        onDraw = { viewModel.agreeDraw(playerSide) },
-                        onResign = { viewModel.resign(playerSide) },
+                    OnlineRoomStatusBar(
+                        roomId = session.roomId,
+                        connectionState = connectionState,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                     )
 
@@ -231,6 +235,7 @@ fun OnlineGameScreen(
                     ChessBoard(
                         board = state.board,
                         currentSide = state.currentSide,
+                        status = state.status,
                         selectedPiece = selectedPiece,
                         legalMoves = legalMoves,
                         lastMove = state.lastMove,
@@ -243,9 +248,9 @@ fun OnlineGameScreen(
                     OnlineControlPanel(
                         state = state,
                         statusMessage = statusMessage,
-                        side = bottomSide,
-                        connectionText = if (bottomSide == playerSide) "你 · $roomInfo" else "对手 · $roomInfo",
-                        showActions = bottomSide == playerSide,
+                        side = playerSide,
+                        connectionText = "你执${playerSide.displayName().removeSuffix("方")}",
+                        showActions = true,
                         canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },
                         onDraw = { viewModel.agreeDraw(playerSide) },
@@ -262,11 +267,13 @@ fun OnlineGameScreen(
 private fun OnlineJoinPanel(
     serverUrl: String,
     roomId: String,
+    preferredSide: Side,
     connecting: Boolean,
     message: String,
     onServerUrlChange: (String) -> Unit,
     onRoomIdChange: (String) -> Unit,
     onGenerateRoomId: () -> Unit,
+    onPreferredSideChange: (Side) -> Unit,
     onJoin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -278,7 +285,9 @@ private fun OnlineJoinPanel(
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -288,7 +297,36 @@ private fun OnlineJoinPanel(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFFFE4A6)
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                for ((side, label) in listOf(Side.RED to "我执红", Side.BLACK to "我执黑")) {
+                    if (preferredSide == side) {
+                        Button(
+                            onClick = { onPreferredSideChange(side) },
+                            enabled = !connecting,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        ) {
+                            Text(label, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        FilledTonalButton(
+                            onClick = { onPreferredSideChange(side) },
+                            enabled = !connecting,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                        ) {
+                            Text(label, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = onServerUrlChange,
@@ -339,6 +377,42 @@ private fun OnlineJoinPanel(
                     fontSize = 13.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun OnlineRoomStatusBar(
+    roomId: String,
+    connectionState: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xEAF7E5C7),
+        shape = RoundedCornerShape(8.dp),
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "房间 $roomId",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4A2A13),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = connectionState,
+                fontSize = 14.sp,
+                color = Color(0xFFB32318),
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

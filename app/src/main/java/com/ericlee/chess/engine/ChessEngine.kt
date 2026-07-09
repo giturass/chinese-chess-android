@@ -4,7 +4,9 @@ import com.ericlee.chess.model.Board
 import com.ericlee.chess.model.Move
 import com.ericlee.chess.model.PieceType
 import com.ericlee.chess.model.Side
-import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.sqrt
 
 class ChessEngine(private val aiSide: Side = Side.BLACK) {
 
@@ -17,154 +19,140 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
     ): Move? {
         nodesSearched = 0
 
-        val searchDepth = depth.coerceIn(1, 5)
-        val counts = positionCounts.toMutableMap()
-        if (counts.isEmpty()) {
-            counts.increment(board.positionKey(aiSide))
+        val rootCounts = positionCounts.toMutableMap()
+        if (rootCounts.isEmpty()) {
+            rootCounts.increment(board.positionKey(aiSide))
         }
 
-        var bestMove: Move? = null
-        for (currentDepth in 1..searchDepth) {
-            val result = searchRoot(board, currentDepth, counts)
-            if (result.move != null) {
-                bestMove = result.move
-            }
+        val root = SearchNode(
+            board = board.copy(),
+            sideToMove = aiSide,
+            parent = null,
+            move = null,
+            prior = 1.0,
+            positionCounts = rootCounts
+        )
+        root.expand()
+        if (root.children.isEmpty()) return null
+
+        repeat(iterationsForDifficulty(depth)) {
+            runSimulation(root)
         }
 
-        return bestMove
+        return root.children.maxWithOrNull(
+            compareBy<SearchNode> { it.visits }.thenBy { it.meanValueForParent() }
+        )?.move
     }
 
-    private fun searchRoot(
-        board: Board,
-        depth: Int,
-        positionCounts: MutableMap<String, Int>
-    ): SearchResult {
-        val moves = legalMovesForSearch(board, aiSide, positionCounts)
-        if (moves.isEmpty()) return SearchResult(null, Int.MIN_VALUE + 1)
-
-        var bestMove = moves.first()
-        var bestScore = Int.MIN_VALUE + 1
-        var alpha = Int.MIN_VALUE + 1
-        val beta = Int.MAX_VALUE - 1
-
-        for (move in sortMoves(board, moves)) {
-            val appliedMove = applyMove(board, move, aiSide, positionCounts) ?: continue
-            val score = -alphaBeta(
-                board = board,
-                depth = depth - 1,
-                alpha = -beta,
-                beta = -alpha,
-                currentSide = aiSide.opposite(),
-                positionCounts = positionCounts,
-                ply = 1
-            )
-            undoAppliedMove(board, appliedMove, positionCounts)
-
-            if (score > bestScore) {
-                bestScore = score
-                bestMove = move
-            }
-            if (score > alpha) {
-                alpha = score
-            }
-        }
-
-        return SearchResult(bestMove, bestScore)
-    }
-
-    private fun alphaBeta(
-        board: Board,
-        depth: Int,
-        alpha: Int,
-        beta: Int,
-        currentSide: Side,
-        positionCounts: MutableMap<String, Int>,
-        ply: Int
-    ): Int {
+    private fun runSimulation(root: SearchNode) {
         nodesSearched++
+        var node = root
 
-        if (board.findKing(currentSide) == null) return -WIN_SCORE + ply
-        if (board.findKing(currentSide.opposite()) == null) return WIN_SCORE - ply
-
-        if (depth <= 0) {
-            return quiescence(board, alpha, beta, currentSide, positionCounts, ply, 0)
+        while (node.children.isNotEmpty()) {
+            node = node.selectChild()
         }
 
-        val moves = legalMovesForSearch(board, currentSide, positionCounts)
-        if (moves.isEmpty()) {
-            return if (board.isInCheck(currentSide)) -WIN_SCORE + ply else 0
+        val value = node.terminalValue() ?: run {
+            node.expand()
+            node.evaluate()
         }
 
-        var a = alpha
-        for (move in sortMoves(board, moves)) {
-            val appliedMove = applyMove(board, move, currentSide, positionCounts) ?: continue
-            val score = -alphaBeta(
-                board = board,
-                depth = depth - 1,
-                alpha = -beta,
-                beta = -a,
-                currentSide = currentSide.opposite(),
-                positionCounts = positionCounts,
-                ply = ply + 1
-            )
-            undoAppliedMove(board, appliedMove, positionCounts)
-
-            if (score >= beta) return beta
-            if (score > a) a = score
+        var backedValue = value
+        var cursor: SearchNode? = node
+        while (cursor != null) {
+            cursor.visits += 1
+            cursor.valueSum += backedValue
+            backedValue = -backedValue
+            cursor = cursor.parent
         }
-
-        return a
     }
 
-    private fun quiescence(
-        board: Board,
-        alpha: Int,
-        beta: Int,
-        currentSide: Side,
-        positionCounts: MutableMap<String, Int>,
-        ply: Int,
-        qDepth: Int
-    ): Int {
-        nodesSearched++
+    private inner class SearchNode(
+        val board: Board,
+        val sideToMove: Side,
+        val parent: SearchNode?,
+        val move: Move?,
+        val prior: Double,
+        val positionCounts: MutableMap<String, Int>
+    ) {
+        var visits: Int = 0
+        var valueSum: Double = 0.0
+        val children: MutableList<SearchNode> = mutableListOf()
 
-        val inCheck = board.isInCheck(currentSide)
-        val standPat = Evaluator.evaluate(board, currentSide)
-        if (!inCheck && standPat >= beta) return beta
+        fun expand() {
+            if (children.isNotEmpty() || terminalValue() != null) return
 
-        var a = if (inCheck) alpha else maxOf(alpha, standPat)
-        if (qDepth >= MAX_QUIESCENCE_DEPTH) return a
+            val moves = legalMovesForSearch(board, sideToMove, positionCounts)
+            if (moves.isEmpty()) return
 
-        val moves = legalMovesForSearch(board, currentSide, positionCounts)
-            .filter { isTacticalMove(board, it, currentSide) }
-        if (moves.isEmpty() && inCheck) return -WIN_SCORE + ply
-
-        for (move in sortMoves(board, moves)) {
-            val appliedMove = applyMove(board, move, currentSide, positionCounts) ?: continue
-            val score = -quiescence(
-                board = board,
-                alpha = -beta,
-                beta = -a,
-                currentSide = currentSide.opposite(),
-                positionCounts = positionCounts,
-                ply = ply + 1,
-                qDepth = qDepth + 1
-            )
-            undoAppliedMove(board, appliedMove, positionCounts)
-
-            if (score >= beta) return beta
-            if (score > a) a = score
+            val policies = policyScores(moves)
+            for ((index, move) in moves.withIndex()) {
+                val childBoard = board.copy()
+                val actualMove = move.copy(captured = childBoard.makeMove(move), side = sideToMove)
+                val nextSide = sideToMove.opposite()
+                val childCounts = positionCounts.toMutableMap()
+                childCounts.increment(childBoard.positionKey(nextSide))
+                children += SearchNode(
+                    board = childBoard,
+                    sideToMove = nextSide,
+                    parent = this,
+                    move = actualMove,
+                    prior = policies[index],
+                    positionCounts = childCounts
+                )
+            }
         }
 
-        return a
+        fun selectChild(): SearchNode {
+            val parentVisits = visits.coerceAtLeast(1)
+            return children.maxByOrNull { child ->
+                child.meanValueForParent() +
+                    PUCT_EXPLORATION * child.prior * sqrt(parentVisits.toDouble()) / (1 + child.visits)
+            } ?: children.first()
+        }
+
+        fun meanValue(): Double =
+            if (visits == 0) 0.0 else valueSum / visits
+
+        fun meanValueForParent(): Double = -meanValue()
+
+        fun evaluate(): Double {
+            val raw = Evaluator.evaluate(board, sideToMove).coerceIn(-VALUE_CLAMP, VALUE_CLAMP)
+            return raw / VALUE_CLAMP.toDouble()
+        }
+
+        fun terminalValue(): Double? {
+            if (board.findKing(sideToMove) == null) return -1.0
+            if (board.findKing(sideToMove.opposite()) == null) return 1.0
+
+            val moves = legalMovesForSearch(board, sideToMove, positionCounts)
+            if (moves.isNotEmpty()) return null
+            return if (board.isInCheck(sideToMove)) -1.0 else 0.0
+        }
+
+        private fun policyScores(moves: List<Move>): List<Double> {
+            val scores = moves.map { move ->
+                val childBoard = board.copy()
+                childBoard.makeMove(move)
+                Evaluator.evaluate(childBoard, sideToMove) +
+                    moveUrgency(board, move, sideToMove)
+            }
+            val maxScore = scores.maxOrNull() ?: 0
+            val weights = scores.map { score ->
+                exp(((score - maxScore).coerceAtLeast(-700)) / POLICY_TEMPERATURE)
+            }
+            val total = weights.sum().takeIf { it > 0.0 } ?: moves.size.toDouble()
+            return weights.map { it / total }
+        }
     }
 
     private fun legalMovesForSearch(
         board: Board,
         side: Side,
-        positionCounts: MutableMap<String, Int>
+        positionCounts: Map<String, Int>
     ): List<Move> {
-        return board.getAllLegalMoves(side).filter { move ->
-            !wouldCauseLongCheck(board, move, side, positionCounts)
+        return board.getAllLegalMoves(side).filterNot { move ->
+            wouldCauseLongCheck(board, move, side, positionCounts)
         }
     }
 
@@ -182,89 +170,35 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
         return givesCheck && repeated
     }
 
-    private fun applyMove(
-        board: Board,
-        move: Move,
-        side: Side,
-        positionCounts: MutableMap<String, Int>
-    ): AppliedMove? {
-        val actualMove = move.copy(captured = board.makeMove(move))
-        val nextSide = side.opposite()
-        val key = board.positionKey(nextSide)
-        if (board.isInCheck(nextSide) && (positionCounts[key] ?: 0) >= 2) {
-            board.undoMove(actualMove)
-            return null
+    private fun moveUrgency(board: Board, move: Move, side: Side): Int {
+        val movingPiece = board.getPiece(move.fromRow, move.fromCol)
+        val target = board.getPiece(move.toRow, move.toCol)
+        var score = 0
+
+        if (target != null) {
+            score += pieceValue(target.type) * 4 - pieceValue(movingPiece?.type ?: PieceType.PAWN)
+            if (target.type == PieceType.KING) score += WIN_BONUS
         }
-        positionCounts.increment(key)
-        return AppliedMove(actualMove, key)
-    }
-
-    private fun undoAppliedMove(
-        board: Board,
-        appliedMove: AppliedMove,
-        positionCounts: MutableMap<String, Int>
-    ) {
-        positionCounts.decrement(appliedMove.positionKey)
-        board.undoMove(appliedMove.move)
-    }
-
-    private fun isTacticalMove(board: Board, move: Move, side: Side): Boolean {
-        if (board.getPiece(move.toRow, move.toCol) != null) return true
-        if (board.isInCheck(side)) return true
 
         val actualMove = move.copy(captured = board.makeMove(move))
-        val givesCheck = board.isInCheck(side.opposite())
+        if (board.isInCheck(side.opposite())) score += 480
+        if (movingPiece != null && board.isSquareAttacked(move.toRow, move.toCol, side.opposite())) {
+            score -= pieceValue(movingPiece.type) / 3
+        }
         board.undoMove(actualMove)
 
-        return givesCheck
+        return score
     }
 
-    private fun sortMoves(board: Board, moves: List<Move>): List<Move> {
-        return moves.sortedByDescending { move ->
-            var score = 0
-            val movingPiece = board.getPiece(move.fromRow, move.fromCol)
-            val target = board.getPiece(move.toRow, move.toCol)
-
-            if (target != null) {
-                score += pieceValueForSort(target.type) * 20 -
-                    pieceValueForSort(movingPiece?.type ?: PieceType.PAWN)
-                if (target.type == PieceType.KING) score += WIN_SCORE / 10
-            }
-
-            if (movingPiece != null) {
-                val actualMove = move.copy(captured = board.makeMove(move))
-                val movedPiece = board.getPiece(move.toRow, move.toCol)
-                if (board.isInCheck(movingPiece.side.opposite())) {
-                    score += 900
-                }
-                if (movedPiece != null) {
-                    if (board.isSquareAttacked(move.toRow, move.toCol, movingPiece.side.opposite())) {
-                        score -= pieceValueForSort(movedPiece.type) / 2
-                    }
-                    if (board.isPieceProtected(movedPiece)) {
-                        score += pieceValueForSort(movedPiece.type) / 5
-                    }
-                }
-                board.undoMove(actualMove)
-
-                score += forwardProgressBonus(movingPiece.side, move.fromRow, move.toRow, movingPiece.type)
-                score -= abs(move.toCol - 4)
-            }
-
-            score
-        }
+    private fun iterationsForDifficulty(depth: Int): Int = when (depth.coerceIn(1, 5)) {
+        1 -> 120
+        2 -> 240
+        3 -> 420
+        4 -> 700
+        else -> 980
     }
 
-    private fun forwardProgressBonus(side: Side, fromRow: Int, toRow: Int, type: PieceType): Int {
-        val forward = if (side == Side.RED) fromRow - toRow else toRow - fromRow
-        return when (type) {
-            PieceType.PAWN -> forward * 18
-            PieceType.KNIGHT, PieceType.CANNON -> forward * 4
-            else -> 0
-        }
-    }
-
-    private fun pieceValueForSort(type: PieceType): Int = when (type) {
+    private fun pieceValue(type: PieceType): Int = when (type) {
         PieceType.KING -> 100000
         PieceType.ROOK -> 1000
         PieceType.CANNON -> 450
@@ -274,27 +208,19 @@ class ChessEngine(private val aiSide: Side = Side.BLACK) {
         PieceType.ELEPHANT -> 200
     }
 
-    fun getSearchInfo(): String = "Searched $nodesSearched nodes"
+    fun getSearchInfo(): String {
+        val strength = ln(nodesSearched.coerceAtLeast(1).toDouble() + 1.0).toInt()
+        return "AlphaZero MCTS searched $nodesSearched nodes (strength $strength)"
+    }
 
     private fun MutableMap<String, Int>.increment(key: String) {
         this[key] = (this[key] ?: 0) + 1
     }
 
-    private fun MutableMap<String, Int>.decrement(key: String) {
-        val value = (this[key] ?: 0) - 1
-        if (value <= 0) {
-            remove(key)
-        } else {
-            this[key] = value
-        }
-    }
-
-    private data class SearchResult(val move: Move?, val score: Int)
-
-    private data class AppliedMove(val move: Move, val positionKey: String)
-
     private companion object {
-        const val WIN_SCORE = 1_000_000
-        const val MAX_QUIESCENCE_DEPTH = 4
+        const val PUCT_EXPLORATION = 1.35
+        const val POLICY_TEMPERATURE = 260.0
+        const val VALUE_CLAMP = 2400
+        const val WIN_BONUS = 100000
     }
 }

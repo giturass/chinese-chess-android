@@ -58,7 +58,8 @@ data class OnlinePendingAction(
 }
 
 data class OnlineJoinRequest(
-    val playerId: String? = null
+    val playerId: String? = null,
+    val preferredSide: Side? = null
 )
 
 data class OnlineMoveRequest(

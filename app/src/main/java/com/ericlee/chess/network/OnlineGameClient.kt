@@ -1,6 +1,7 @@
 package com.ericlee.chess.network
 
 import com.google.gson.Gson
+import com.ericlee.chess.model.Side
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,8 +13,11 @@ class OnlineGameClient(
 ) {
     private val baseUrl = serverUrl.trim().trimEnd('/')
 
-    fun join(roomId: String, playerId: String? = null): OnlineSnapshot {
-        val body = OnlineJoinRequest(playerId = playerId.takeUnless { it.isNullOrBlank() })
+    fun join(roomId: String, playerId: String? = null, preferredSide: Side? = null): OnlineSnapshot {
+        val body = OnlineJoinRequest(
+            playerId = playerId.takeUnless { it.isNullOrBlank() },
+            preferredSide = preferredSide
+        )
         return request(
             path = "/api/rooms/${roomId.pathPart()}/join",
             method = "POST",

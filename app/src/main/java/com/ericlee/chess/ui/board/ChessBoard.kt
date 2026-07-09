@@ -1,5 +1,7 @@
 package com.ericlee.chess.ui.board
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
 import kotlin.math.min
@@ -45,6 +48,7 @@ private val PIECE_BG = Color(0xFFF6D495)
 fun ChessBoard(
     board: Board,
     currentSide: Side,
+    status: GameStatus = GameStatus.PLAYING,
     selectedPiece: Piece?,
     legalMoves: List<Move>,
     lastMove: Move?,
@@ -167,7 +171,20 @@ fun ChessBoard(
             val cy = offsetY + toDisplayRow(row, isFlipped) * cellH
             drawPiece(piece, cx, cy, cellW * 0.43f, isFlipped)
         }
+
+        val alertText = boardAlertText(status, checkedKing != null)
+        if (alertText != null) {
+            drawBoardAlert(alertText, status, cellW)
+        }
     }
+}
+
+private fun boardAlertText(status: GameStatus, isCheck: Boolean): String? = when (status) {
+    GameStatus.RED_WIN -> "红方胜"
+    GameStatus.BLACK_WIN -> "黑方胜"
+    GameStatus.STALEMATE -> "和棋"
+    GameStatus.DRAW -> "和棋"
+    GameStatus.PLAYING -> if (isCheck) "将军" else null
 }
 
 private fun toDisplayRow(row: Int, isFlipped: Boolean): Int = if (isFlipped) 9 - row else row
@@ -674,6 +691,50 @@ private fun boardPositionCenter(
     x = offsetX + toDisplayCol(col, isFlipped) * cellW,
     y = offsetY + toDisplayRow(row, isFlipped) * cellH
 )
+
+private fun DrawScope.drawBoardAlert(text: String, status: GameStatus, cellW: Float) {
+    val isFinal = status != GameStatus.PLAYING
+    val fillColor = when (status) {
+        GameStatus.BLACK_WIN -> BLACK_COLOR
+        GameStatus.RED_WIN -> RED_COLOR
+        GameStatus.STALEMATE, GameStatus.DRAW -> Color(0xFF5C2D10)
+        GameStatus.PLAYING -> Color(0xFFC31B12)
+    }
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val textSize = cellW * if (isFinal) 1.14f else 1.02f
+
+    drawRoundRect(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xF8FFE8AC), Color(0xD8D29045), Color(0x001F0F06)),
+            center = center,
+            radius = cellW * 3.4f
+        ),
+        topLeft = Offset(center.x - cellW * 3.15f, center.y - cellW * 1.08f),
+        size = Size(cellW * 6.3f, cellW * 2.16f),
+        cornerRadius = CornerRadius(cellW * 0.24f, cellW * 0.24f)
+    )
+
+    drawContext.canvas.nativeCanvas.apply {
+        val y = center.y + textSize * 0.34f
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color(0xFFFFE9B1).toArgb()
+            style = Paint.Style.STROKE
+            strokeWidth = textSize * 0.12f
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+            this.textSize = textSize
+            setShadowLayer(textSize * 0.16f, 0f, textSize * 0.08f, Color(0xAA1D0E06).toArgb())
+        }
+        val fillPaint = Paint(strokePaint).apply {
+            color = fillColor.toArgb()
+            style = Paint.Style.FILL
+            strokeWidth = 0f
+            setShadowLayer(textSize * 0.06f, 0f, 0f, Color(0x66FFF2C3).toArgb())
+        }
+        drawText(text, center.x, y, strokePaint)
+        drawText(text, center.x, y, fillPaint)
+    }
+}
 
 private fun DrawScope.drawPiece(piece: Piece, cx: Float, cy: Float, radius: Float, isFlipped: Boolean) {
     val color = if (piece.side == Side.RED) RED_COLOR else BLACK_COLOR

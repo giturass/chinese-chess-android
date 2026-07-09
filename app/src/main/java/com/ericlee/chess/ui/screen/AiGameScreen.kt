@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -62,6 +65,7 @@ fun AiGameScreen(
 ) {
     var difficulty by remember { mutableIntStateOf(3) }
     var gameStarted by remember { mutableStateOf(false) }
+    var selectedHumanSide by remember { mutableStateOf<Side?>(null) }
     var confirmAction by remember { mutableStateOf<AiConfirmAction?>(null) }
 
     val state by viewModel.gameState.collectAsState()
@@ -158,19 +162,29 @@ fun AiGameScreen(
                     .battlefieldTexture()
                     .padding(padding)
             ) {
-                DifficultySelector(
-                    onSelectDifficulty = { selectedDifficulty, humanSide ->
-                        difficulty = selectedDifficulty
-                        viewModel.startGame(
-                            mode = GameMode.AI,
-                            difficulty = selectedDifficulty,
-                            flipped = humanSide == Side.BLACK,
-                            humanSide = humanSide
-                        )
-                        gameStarted = true
-                    },
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                val humanSide = selectedHumanSide
+                if (humanSide == null) {
+                    AiSideSelector(
+                        onSelectSide = { selectedHumanSide = it },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    DifficultySelector(
+                        humanSide = humanSide,
+                        onBackToSide = { selectedHumanSide = null },
+                        onSelectDifficulty = { selectedDifficulty ->
+                            difficulty = selectedDifficulty
+                            viewModel.startGame(
+                                mode = GameMode.AI,
+                                difficulty = selectedDifficulty,
+                                flipped = humanSide == Side.BLACK,
+                                humanSide = humanSide
+                            )
+                            gameStarted = true
+                        },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             }
         } else {
             Box(
@@ -217,6 +231,7 @@ private fun AiGameContent(
             ChessBoard(
                 board = state.board,
                 currentSide = state.currentSide,
+                status = state.status,
                 selectedPiece = selectedPiece,
                 legalMoves = legalMoves,
                 lastMove = state.lastMove,
@@ -259,11 +274,57 @@ private fun AiGameContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DifficultySelector(
-    onSelectDifficulty: (Int, Side) -> Unit,
+private fun AiSideSelector(
+    onSelectSide: (Side) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var humanSide by remember { mutableStateOf(Side.RED) }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 34.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "人机对弈",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFFFE4A6)
+        )
+        Text(
+            text = "选择执棋方",
+            fontSize = 15.sp,
+            color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        Button(
+            onClick = { onSelectSide(Side.RED) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+        ) {
+            Text("我执红", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        FilledTonalButton(
+            onClick = { onSelectSide(Side.BLACK) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+        ) {
+            Text("我执黑", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DifficultySelector(
+    humanSide: Side,
+    onBackToSide: () -> Unit,
+    onSelectDifficulty: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val levels = listOf(
         DifficultyLevel(1, "入门", "快速应手，适合熟悉规则", "★"),
         DifficultyLevel(2, "进阶", "会主动兑子与防守", "★★"),
@@ -285,85 +346,64 @@ private fun DifficultySelector(
             color = Color(0xFFFFE4A6)
         )
         Text(
-            text = "选择难度开局",
+            text = if (humanSide == Side.RED) "我执红 · 选择难度" else "我执黑 · AI 执红先行",
             fontSize = 15.sp,
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            for ((side, label) in listOf(Side.RED to "我执红", Side.BLACK to "我执黑")) {
-                if (humanSide == side) {
-                    Button(
-                        onClick = { humanSide = side },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                    ) {
-                        Text(label)
-                    }
-                } else {
-                    FilledTonalButton(
-                        onClick = { humanSide = side },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                    ) {
-                        Text(label)
-                    }
-                }
-            }
+        FilledTonalButton(onClick = onBackToSide) {
+            Text("重选红黑")
         }
 
-        Text(
-            text = if (humanSide == Side.RED) "红方先手" else "AI 执红先行",
-            fontSize = 13.sp,
-            color = Color(0xFFFFF0D4).copy(alpha = 0.72f),
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        Spacer(modifier = Modifier.height(18.dp))
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        for (level in levels) {
-            ElevatedCard(
-                onClick = { onSelectDifficulty(level.value, humanSide) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = Color(0xEAF7E5C7)
-                ),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-            ) {
-                Row(
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            for (level in levels) {
+                ElevatedCard(
+                    onClick = { onSelectDifficulty(level.value) },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 13.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .width(148.dp)
+                        .padding(vertical = 5.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = Color(0xEAF7E5C7)
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 13.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = level.name,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4A2A13)
+                            )
+                            Text(
+                                text = level.description,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.66f)
+                            )
+                        }
                         Text(
-                            text = level.name,
-                            fontSize = 20.sp,
+                            text = level.stars,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4A2A13)
-                        )
-                        Text(
-                            text = level.description,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.66f)
+                            color = Color(0xFFB3261E)
                         )
                     }
-                    Text(
-                        text = level.stars,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFB3261E)
-                    )
                 }
             }
         }

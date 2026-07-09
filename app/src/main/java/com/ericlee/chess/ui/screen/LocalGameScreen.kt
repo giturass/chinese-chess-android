@@ -1,10 +1,12 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,7 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
@@ -46,10 +49,7 @@ fun LocalGameScreen(
     viewModel: GameViewModel,
     onBack: () -> Unit
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.startGame(GameMode.LOCAL)
-    }
-
+    var gameStarted by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<PendingLocalAction?>(null) }
     var confirmAction by remember { mutableStateOf<BoardConfirmAction?>(null) }
 
@@ -131,21 +131,23 @@ fun LocalGameScreen(
                     }
                 },
                 actions = {
-                    FilledTonalButton(
-                        onClick = { confirmAction = BoardConfirmAction.FLIP },
-                        modifier = Modifier.padding(end = 6.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.SwapVert, contentDescription = null)
-                        Text("调转")
-                    }
-                    Button(
-                        onClick = { confirmAction = BoardConfirmAction.RESET },
-                        modifier = Modifier.padding(end = 8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Text("重置")
+                    if (gameStarted) {
+                        FilledTonalButton(
+                            onClick = { confirmAction = BoardConfirmAction.FLIP },
+                            modifier = Modifier.padding(end = 6.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.SwapVert, contentDescription = null)
+                            Text("调转")
+                        }
+                        Button(
+                            onClick = { confirmAction = BoardConfirmAction.RESET },
+                            modifier = Modifier.padding(end = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Text("重置")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -163,48 +165,106 @@ fun LocalGameScreen(
                 .woodTexture()
                 .padding(padding)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                PlayerControlPanel(
-                    side = topSide,
-                    state = state,
-                    statusMessage = statusMessage,
-                    onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                    onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                    onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+            if (!gameStarted) {
+                LocalSideSelector(
+                    onSelectSide = { side ->
+                        viewModel.startGame(
+                            mode = GameMode.LOCAL,
+                            flipped = side == Side.BLACK
+                        )
+                        gameStarted = true
+                    },
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                Column(
                     modifier = Modifier
-                        .padding(horizontal = 4.dp, vertical = 4.dp)
-                        .graphicsLayer(rotationZ = 180f)
-                )
+                        .fillMaxSize()
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    PlayerControlPanel(
+                        side = topSide,
+                        state = state,
+                        statusMessage = statusMessage,
+                        onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
+                        onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
+                        onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                            .graphicsLayer(rotationZ = 180f)
+                    )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                ChessBoard(
-                    board = state.board,
-                    currentSide = state.currentSide,
-                    selectedPiece = selectedPiece,
-                    legalMoves = legalMoves,
-                    lastMove = state.lastMove,
-                    isFlipped = state.isFlipped,
-                    onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
-                )
+                    ChessBoard(
+                        board = state.board,
+                        currentSide = state.currentSide,
+                        status = state.status,
+                        selectedPiece = selectedPiece,
+                        legalMoves = legalMoves,
+                        lastMove = state.lastMove,
+                        isFlipped = state.isFlipped,
+                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
+                    )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                PlayerControlPanel(
-                    side = bottomSide,
-                    state = state,
-                    statusMessage = statusMessage,
-                    onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                    onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                    onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-                )
+                    PlayerControlPanel(
+                        side = bottomSide,
+                        state = state,
+                        statusMessage = statusMessage,
+                        onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
+                        onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
+                        onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun LocalSideSelector(
+    onSelectSide: (Side) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 34.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "本地双人",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFFFE4A6)
+        )
+        Text(
+            text = "选择下方所执方",
+            fontSize = 15.sp,
+            color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        Button(
+            onClick = { onSelectSide(Side.RED) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+        ) {
+            Text("下方执红", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        FilledTonalButton(
+            onClick = { onSelectSide(Side.BLACK) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+        ) {
+            Text("下方执黑", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

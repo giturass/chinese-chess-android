@@ -263,7 +263,8 @@ class GameViewModel : ViewModel() {
 
     fun startOnlineGame(
         roomId: String,
-        serverUrl: String
+        serverUrl: String,
+        preferredSide: Side = Side.RED
     ) {
         val cleanedRoomId = roomId.trim()
         val cleanedServerUrl = serverUrl.trim().trimEnd('/')
@@ -312,7 +313,7 @@ class GameViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    client.join(cleanedRoomId, previousPlayerId)
+                    client.join(cleanedRoomId, previousPlayerId, preferredSide)
                 }
             }.onSuccess { snapshot ->
                 if (version != gameVersion) return@onSuccess
@@ -474,6 +475,7 @@ class GameViewModel : ViewModel() {
 
     private fun applyOnlineSnapshot(snapshot: OnlineSnapshot) {
         val playerSide = snapshot.side
+        val previousState = _gameState.value
         var state = GameState(
             mode = GameMode.ONLINE,
             isFlipped = onlineFlippedOverride ?: (playerSide == Side.BLACK),
@@ -488,9 +490,15 @@ class GameViewModel : ViewModel() {
             state = state.copy(status = snapshot.status)
         }
 
+        val boardChanged = previousState.mode != GameMode.ONLINE ||
+            previousState.moveHistory.size != state.moveHistory.size ||
+            previousState.status != state.status ||
+            previousState.currentSide != state.currentSide
         _gameState.value = state
-        _selectedPiece.value = null
-        _legalMoves.value = emptyList()
+        if (boardChanged) {
+            _selectedPiece.value = null
+            _legalMoves.value = emptyList()
+        }
         updateStatusMessage(state)
         if (state.status == GameStatus.PLAYING && snapshot.playerCount < 2) {
             _statusMessage.value = "等待对手加入"

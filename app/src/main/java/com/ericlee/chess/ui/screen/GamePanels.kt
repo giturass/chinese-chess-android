@@ -19,7 +19,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -111,7 +110,7 @@ fun AiControlPanel(
         statusMessage = statusMessage,
         accentSide = state.humanSide,
         isAiThinking = isAiThinking,
-        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · 难度 $difficulty",
+        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · AlphaZero $difficulty",
         modifier = modifier
     ) {
         Row(
@@ -297,14 +296,6 @@ private fun GameInfoPanel(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (state.status != GameStatus.PLAYING || state.isInCheck) {
-                StatusAlert(
-                    state = state,
-                    statusMessage = statusMessage,
-                    accent = accent
-                )
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -333,49 +324,6 @@ private fun GameInfoPanel(
             }
 
             actions()
-        }
-    }
-}
-
-@Composable
-private fun StatusAlert(
-    state: GameState,
-    statusMessage: String,
-    accent: Color
-) {
-    val text = when (state.status) {
-        GameStatus.RED_WIN -> "红方获胜"
-        GameStatus.BLACK_WIN -> "黑方获胜"
-        GameStatus.STALEMATE -> "和棋"
-        GameStatus.DRAW -> "和棋"
-        GameStatus.PLAYING -> "将军"
-    }
-    val detail = if (state.status == GameStatus.PLAYING) {
-        "${state.currentSide.displayName()}被将军，必须应将"
-    } else {
-        statusMessage
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = accent.copy(alpha = if (state.status == GameStatus.PLAYING) 0.16f else 0.22f),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = text,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent
-            )
-            Text(
-                text = detail,
-                fontSize = 13.sp,
-                color = Color(0xFF241B14).copy(alpha = 0.82f)
-            )
         }
     }
 }
