@@ -11,6 +11,8 @@ enum class GameStatus {
 data class GameState(
     val board: Board = Board(),
     val currentSide: Side = Side.RED,
+    val initialBoard: Board = board.copy(),
+    val initialSide: Side = Side.RED,
     val mode: GameMode = GameMode.LOCAL,
     val status: GameStatus = GameStatus.PLAYING,
     val moveHistory: MutableList<Move> = mutableListOf(),
@@ -64,4 +66,56 @@ data class GameState(
     val lastMove: Move? get() = moveHistory.lastOrNull()
 
     val lastMoveSide: Side? get() = lastMove?.side ?: if (moveHistory.isNotEmpty()) currentSide.opposite() else null
+
+    fun legalMovesForPiece(piece: Piece): List<Move> {
+        val positionCounts = positionOccurrences()
+        return board.getLegalMovesForPiece(piece)
+            .filterNot { wouldCauseLongCheck(it, piece.side, positionCounts) }
+    }
+
+    fun allLegalMoves(side: Side): List<Move> {
+        val positionCounts = positionOccurrences()
+        return board.getAllLegalMoves(side)
+            .filterNot { wouldCauseLongCheck(it, side, positionCounts) }
+    }
+
+    fun isLongCheckMove(move: Move): Boolean =
+        wouldCauseLongCheck(move, currentSide, positionOccurrences())
+
+    fun positionOccurrences(): Map<String, Int> {
+        val replay = initialBoard.copy()
+        val counts = mutableMapOf<String, Int>()
+        var sideToMove = initialSide
+
+        counts.increment(replay.positionKey(sideToMove))
+        for (historyMove in moveHistory) {
+            replay.makeMove(historyMove)
+            sideToMove = sideToMove.opposite()
+            counts.increment(replay.positionKey(sideToMove))
+        }
+
+        return counts
+    }
+
+    private fun wouldCauseLongCheck(
+        move: Move,
+        movingSide: Side,
+        positionCounts: Map<String, Int>
+    ): Boolean {
+        val movingPiece = board.getPiece(move.fromRow, move.fromCol) ?: return false
+        if (movingPiece.side != movingSide) return false
+
+        val captured = board.makeMove(move)
+        val actualMove = move.copy(captured = captured)
+        val targetSide = movingSide.opposite()
+        val givesCheck = board.isInCheck(targetSide)
+        val repeatsPosition = (positionCounts[board.positionKey(targetSide)] ?: 0) >= 2
+        board.undoMove(actualMove)
+
+        return givesCheck && repeatsPosition
+    }
+
+    private fun MutableMap<String, Int>.increment(key: String) {
+        this[key] = (this[key] ?: 0) + 1
+    }
 }

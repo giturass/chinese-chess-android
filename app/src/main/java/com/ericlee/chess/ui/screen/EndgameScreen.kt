@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.ericlee.chess.data.EndgameRepository
 import com.ericlee.chess.model.EndgamePuzzle
 import com.ericlee.chess.model.GameStatus
+import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.ui.theme.woodTexture
@@ -130,6 +131,9 @@ private fun GameContent(
     onPositionClick: (Int, Int) -> Unit,
     onShowHint: () -> Unit
 ) {
+    val topSide = if (state.isFlipped) Side.RED else Side.BLACK
+    val bottomSide = topSide.opposite()
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -160,8 +164,10 @@ private fun GameContent(
             EndgameControlPanel(
                 state = state,
                 statusMessage = statusMessage,
+                side = topSide,
                 puzzleDescription = puzzle.description,
                 difficulty = puzzle.difficulty,
+                showActions = false,
                 onUndo = onUndo,
                 onHint = onShowHint,
                 onReset = onReset,
@@ -169,6 +175,8 @@ private fun GameContent(
                     .fillMaxWidth()
                     .padding(8.dp)
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             ChessBoard(
                 board = state.board,
@@ -178,6 +186,23 @@ private fun GameContent(
                 lastMove = state.lastMove,
                 isFlipped = state.isFlipped,
                 onPositionClick = onPositionClick
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            EndgameControlPanel(
+                state = state,
+                statusMessage = statusMessage,
+                side = bottomSide,
+                puzzleDescription = puzzle.description,
+                difficulty = puzzle.difficulty,
+                showActions = true,
+                onUndo = onUndo,
+                onHint = onShowHint,
+                onReset = onReset,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
             )
 
             if (state.status != GameStatus.PLAYING) {

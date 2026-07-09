@@ -19,6 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -108,9 +109,9 @@ fun AiControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
-        accentSide = Side.RED,
+        accentSide = state.humanSide,
         isAiThinking = isAiThinking,
-        metaText = "难度 $difficulty",
+        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · 难度 $difficulty",
         modifier = modifier
     ) {
         Row(
@@ -211,8 +212,10 @@ fun OnlineControlPanel(
 fun EndgameControlPanel(
     state: GameState,
     statusMessage: String,
+    side: Side,
     puzzleDescription: String,
     difficulty: Int,
+    showActions: Boolean,
     onUndo: () -> Unit,
     onHint: () -> Unit,
     onReset: () -> Unit,
@@ -221,44 +224,46 @@ fun EndgameControlPanel(
     GameInfoPanel(
         state = state,
         statusMessage = statusMessage,
-        accentSide = Side.RED,
-        metaText = "难度 $difficulty",
+        accentSide = side,
+        metaText = "${side.displayName()} · 难度 $difficulty",
         modifier = modifier
     ) {
-        Text(
-            text = puzzleDescription,
-            fontSize = 13.sp,
-            color = Color(0xFF352112).copy(alpha = 0.78f)
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = onUndo,
-                enabled = state.moveHistory.isNotEmpty() && state.status == GameStatus.PLAYING,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+        if (showActions) {
+            Text(
+                text = puzzleDescription,
+                fontSize = 13.sp,
+                color = Color(0xFF352112).copy(alpha = 0.78f)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("悔棋", fontSize = 13.sp)
-            }
-            OutlinedButton(
-                onClick = onHint,
-                enabled = state.status == GameStatus.PLAYING,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text("提示", fontSize = 13.sp)
-            }
-            OutlinedButton(
-                onClick = onReset,
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text("重置", fontSize = 13.sp)
+                OutlinedButton(
+                    onClick = onUndo,
+                    enabled = state.moveHistory.isNotEmpty() && state.status == GameStatus.PLAYING,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("悔棋", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onHint,
+                    enabled = state.status == GameStatus.PLAYING,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("提示", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onReset,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("重置", fontSize = 13.sp)
+                }
             }
         }
     }
@@ -292,6 +297,14 @@ private fun GameInfoPanel(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (state.status != GameStatus.PLAYING || state.isInCheck) {
+                StatusAlert(
+                    state = state,
+                    statusMessage = statusMessage,
+                    accent = accent
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -320,6 +333,49 @@ private fun GameInfoPanel(
             }
 
             actions()
+        }
+    }
+}
+
+@Composable
+private fun StatusAlert(
+    state: GameState,
+    statusMessage: String,
+    accent: Color
+) {
+    val text = when (state.status) {
+        GameStatus.RED_WIN -> "红方获胜"
+        GameStatus.BLACK_WIN -> "黑方获胜"
+        GameStatus.STALEMATE -> "和棋"
+        GameStatus.DRAW -> "和棋"
+        GameStatus.PLAYING -> "将军"
+    }
+    val detail = if (state.status == GameStatus.PLAYING) {
+        "${state.currentSide.displayName()}被将军，必须应将"
+    } else {
+        statusMessage
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = accent.copy(alpha = if (state.status == GameStatus.PLAYING) 0.16f else 0.22f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = text,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
+                color = accent
+            )
+            Text(
+                text = detail,
+                fontSize = 13.sp,
+                color = Color(0xFF241B14).copy(alpha = 0.82f)
+            )
         }
     }
 }

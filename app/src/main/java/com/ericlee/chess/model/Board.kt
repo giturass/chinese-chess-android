@@ -11,6 +11,25 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
     fun findKing(side: Side): Piece? =
         pieces.find { it.side == side && it.type == PieceType.KING }
 
+    fun positionKey(sideToMove: Side): String = buildString {
+        append(sideToMove.ordinal).append('|')
+        pieces.sortedWith(
+            compareBy<Piece> { it.row }
+                .thenBy { it.col }
+                .thenBy { it.side.ordinal }
+                .thenBy { it.type.ordinal }
+        ).forEach { piece ->
+            append(piece.row)
+                .append(',')
+                .append(piece.col)
+                .append(',')
+                .append(piece.side.ordinal)
+                .append(',')
+                .append(piece.type.ordinal)
+                .append(';')
+        }
+    }
+
     fun makeMove(move: Move): Piece? {
         val movingIndex = pieces.indexOfFirst { it.row == move.fromRow && it.col == move.fromCol }
         if (movingIndex < 0) return null
@@ -95,6 +114,15 @@ class Board(val pieces: MutableList<Piece> = Piece.initialPieces().toMutableList
         }
         return false
     }
+
+    fun isSquareAttacked(row: Int, col: Int, bySide: Side): Boolean =
+        getPiecesBySide(bySide).any { canPieceAttack(it, row, col) }
+
+    fun isPieceProtected(piece: Piece): Boolean =
+        getPiecesBySide(piece.side).any { defender ->
+            !(defender.row == piece.row && defender.col == piece.col) &&
+                canPieceAttack(defender, piece.row, piece.col)
+        }
 
     private fun canPieceAttack(piece: Piece, targetRow: Int, targetCol: Int): Boolean {
         val dr = targetRow - piece.row

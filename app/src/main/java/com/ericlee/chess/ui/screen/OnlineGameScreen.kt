@@ -198,7 +198,8 @@ fun OnlineGameScreen(
             val playerSide = session.side ?: Side.RED
             val topSide = if (state.isFlipped) Side.RED else Side.BLACK
             val bottomSide = topSide.opposite()
-            val connectionText = if (session.playerCount < 2) "等待对手" else session.message
+            val connectionState = if (session.playerCount < 2) "等待对手" else session.message.ifBlank { "已连接" }
+            val roomInfo = "房间 ${session.roomId} · $connectionState"
 
             Box(
                 modifier = Modifier
@@ -216,7 +217,7 @@ fun OnlineGameScreen(
                         state = state,
                         statusMessage = statusMessage,
                         side = topSide,
-                        connectionText = if (topSide == playerSide) "你 · $connectionText" else "对手 · 房间 ${session.roomId}",
+                        connectionText = if (topSide == playerSide) "你 · $roomInfo" else "对手 · $roomInfo",
                         showActions = topSide == playerSide,
                         canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },
@@ -243,7 +244,7 @@ fun OnlineGameScreen(
                         state = state,
                         statusMessage = statusMessage,
                         side = bottomSide,
-                        connectionText = if (bottomSide == playerSide) "你 · $connectionText" else "对手 · 房间 ${session.roomId}",
+                        connectionText = if (bottomSide == playerSide) "你 · $roomInfo" else "对手 · $roomInfo",
                         showActions = bottomSide == playerSide,
                         canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },

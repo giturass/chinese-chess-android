@@ -46,6 +46,15 @@ class OnlineGameClient(
             responseClass = OnlineSnapshot::class.java
         )
 
+    fun leave(roomId: String, playerId: String) {
+        request(
+            path = "/api/rooms/${roomId.pathPart()}/leave",
+            method = "POST",
+            body = OnlineLeaveRequest(playerId = playerId),
+            responseClass = LeaveResponse::class.java
+        )
+    }
+
     private fun <T> request(
         path: String,
         method: String,
@@ -96,4 +105,6 @@ class OnlineGameClient(
     private fun String.queryPart(): String = URLEncoder.encode(this, "UTF-8")
 
     private data class ErrorResponse(val error: String = "")
+
+    private data class LeaveResponse(val ok: Boolean = false)
 }

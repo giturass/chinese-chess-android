@@ -71,6 +71,10 @@ data class OnlineActionRequest(
     val action: String
 )
 
+data class OnlineLeaveRequest(
+    val playerId: String
+)
+
 data class OnlineSessionState(
     val serverUrl: String = "",
     val roomId: String = "",

@@ -5,13 +5,13 @@ import com.ericlee.chess.model.*
 object Evaluator {
 
     private val pieceValue = mapOf(
-        PieceType.KING to 10000,
-        PieceType.ADVISOR to 20,
-        PieceType.ELEPHANT to 20,
-        PieceType.ROOK to 100,
-        PieceType.KNIGHT to 45,
-        PieceType.CANNON to 45,
-        PieceType.PAWN to 10
+        PieceType.KING to 100000,
+        PieceType.ADVISOR to 200,
+        PieceType.ELEPHANT to 200,
+        PieceType.ROOK to 1000,
+        PieceType.KNIGHT to 430,
+        PieceType.CANNON to 450,
+        PieceType.PAWN to 100
     )
 
     // Positional value tables (from Red's perspective, row 0 = top)
@@ -73,14 +73,17 @@ object Evaluator {
         for (piece in board.pieces) {
             val baseValue = pieceValue[piece.type] ?: 0
             val posValue = getPositionValue(piece)
-            val total = baseValue + posValue
+            val safetyValue = getSafetyValue(board, piece)
+            val mobilityValue = getMobilityValue(board, piece)
+            val total = baseValue + posValue + safetyValue + mobilityValue
 
             score += if (piece.side == side) total else -total
         }
 
-        // Check bonus
-        if (board.isInCheck(side.opposite())) score += 50
-        if (board.isInCheck(side)) score -= 50
+        if (board.isInCheck(side.opposite())) score += 180
+        if (board.isInCheck(side)) score -= 220
+        score += getKingSafety(board, side)
+        score -= getKingSafety(board, side.opposite())
 
         return score
     }
@@ -127,5 +130,51 @@ object Evaluator {
             }
             else -> 0
         }
+    }
+
+    private fun getSafetyValue(board: Board, piece: Piece): Int {
+        if (piece.type == PieceType.KING) return 0
+
+        val value = pieceValue[piece.type] ?: 0
+        val attacked = board.isSquareAttacked(piece.row, piece.col, piece.side.opposite())
+        val protected = board.isPieceProtected(piece)
+
+        return when {
+            attacked && !protected -> -value / 3
+            attacked && protected -> -value / 8
+            protected -> value / 18
+            else -> 0
+        }
+    }
+
+    private fun getMobilityValue(board: Board, piece: Piece): Int {
+        val mobility = board.getCandidateMoves(piece).size
+        val weight = when (piece.type) {
+            PieceType.ROOK -> 4
+            PieceType.CANNON -> 3
+            PieceType.KNIGHT -> 3
+            PieceType.PAWN -> 2
+            else -> 1
+        }
+        return mobility * weight
+    }
+
+    private fun getKingSafety(board: Board, side: Side): Int {
+        val king = board.findKing(side) ?: return -100000
+        var score = 0
+        val defenders = board.getPiecesBySide(side).count { piece ->
+            piece.type != PieceType.KING &&
+                kotlin.math.abs(piece.row - king.row) <= 2 &&
+                kotlin.math.abs(piece.col - king.col) <= 2
+        }
+        score += defenders * 12
+
+        val opponentPressure = board.getPiecesBySide(side.opposite()).count { piece ->
+            kotlin.math.abs(piece.row - king.row) <= 3 &&
+                kotlin.math.abs(piece.col - king.col) <= 3
+        }
+        score -= opponentPressure * 18
+
+        return score
     }
 }

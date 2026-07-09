@@ -77,11 +77,21 @@ fun AiGameScreen(
                 TextButton(
                     onClick = {
                         when (action) {
-                            AiConfirmAction.FLIP -> viewModel.toggleBoardFlipped()
+                            AiConfirmAction.FLIP -> {
+                                val nextHumanSide = state.humanSide.opposite()
+                                difficulty = state.aiDifficulty
+                                viewModel.startGame(
+                                    mode = GameMode.AI,
+                                    difficulty = state.aiDifficulty,
+                                    flipped = nextHumanSide == Side.BLACK,
+                                    humanSide = nextHumanSide
+                                )
+                            }
                             AiConfirmAction.RESET -> viewModel.startGame(
                                 mode = GameMode.AI,
                                 difficulty = difficulty,
-                                flipped = state.isFlipped
+                                flipped = state.humanSide == Side.BLACK,
+                                humanSide = state.humanSide
                             )
                         }
                         confirmAction = null
@@ -149,11 +159,13 @@ fun AiGameScreen(
                     .padding(padding)
             ) {
                 DifficultySelector(
-                    onSelectDifficulty = {
-                        difficulty = it
+                    onSelectDifficulty = { selectedDifficulty, humanSide ->
+                        difficulty = selectedDifficulty
                         viewModel.startGame(
                             mode = GameMode.AI,
-                            difficulty = it
+                            difficulty = selectedDifficulty,
+                            flipped = humanSide == Side.BLACK,
+                            humanSide = humanSide
                         )
                         gameStarted = true
                     },
@@ -176,8 +188,8 @@ fun AiGameScreen(
                     difficulty = difficulty,
                     onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
                     onUndo = { viewModel.undoMove() },
-                    onDraw = { viewModel.agreeDraw(Side.RED) },
-                    onResign = { viewModel.resign(Side.RED) }
+                    onDraw = { viewModel.agreeDraw(state.humanSide) },
+                    onResign = { viewModel.resign(state.humanSide) }
                 )
             }
         }
@@ -248,9 +260,10 @@ private fun AiGameContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DifficultySelector(
-    onSelectDifficulty: (Int) -> Unit,
+    onSelectDifficulty: (Int, Side) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var humanSide by remember { mutableStateOf(Side.RED) }
     val levels = listOf(
         DifficultyLevel(1, "入门", "快速应手，适合熟悉规则", "★"),
         DifficultyLevel(2, "进阶", "会主动兑子与防守", "★★"),
@@ -277,11 +290,45 @@ private fun DifficultySelector(
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
 
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            for ((side, label) in listOf(Side.RED to "我执红", Side.BLACK to "我执黑")) {
+                if (humanSide == side) {
+                    Button(
+                        onClick = { humanSide = side },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                    ) {
+                        Text(label)
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = { humanSide = side },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+        }
+
+        Text(
+            text = if (humanSide == Side.RED) "红方先手" else "AI 执红先行",
+            fontSize = 13.sp,
+            color = Color(0xFFFFF0D4).copy(alpha = 0.72f),
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
         Spacer(modifier = Modifier.height(20.dp))
 
         for (level in levels) {
             ElevatedCard(
-                onClick = { onSelectDifficulty(level.value) },
+                onClick = { onSelectDifficulty(level.value, humanSide) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp),
@@ -327,7 +374,7 @@ private enum class AiConfirmAction(
     val title: String,
     val message: String
 ) {
-    FLIP("确认调转红黑？", "棋盘方向会立即调转，当前棋局不会重置。"),
+    FLIP("确认调转红黑？", "会重新开局并互换执棋方。AI 执红时将先行。"),
     RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。")
 }
 

@@ -43,6 +43,10 @@ class GameViewModel : ViewModel() {
     private var onlineClient: OnlineGameClient? = null
     private var onlinePollJob: Job? = null
     private var onlineFlippedOverride: Boolean? = null
+    private var onlineMoveInFlight = false
+    private var lastOnlineServerUrl = ""
+    private var lastOnlineRoomId = ""
+    private var lastOnlinePlayerId = ""
 
     fun startGame(
         mode: GameMode,
@@ -111,7 +115,7 @@ class GameViewModel : ViewModel() {
 
         if (clickedPiece != null && clickedPiece.side == state.currentSide) {
             _selectedPiece.value = clickedPiece
-            _legalMoves.value = state.board.getLegalMovesForPiece(clickedPiece)
+            _legalMoves.value = state.legalMovesForPiece(clickedPiece)
         } else {
             _selectedPiece.value = null
             _legalMoves.value = emptyList()
@@ -119,7 +123,15 @@ class GameViewModel : ViewModel() {
     }
 
     private fun executeMove(move: Move) {
-        val newState = _gameState.value.makeMove(move)
+        val state = _gameState.value
+        if (state.isLongCheckMove(move)) {
+            _statusMessage.value = "禁止长将，请改走其他着法"
+            _selectedPiece.value = null
+            _legalMoves.value = emptyList()
+            return
+        }
+
+        val newState = state.makeMove(move)
         _gameState.value = newState
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
@@ -146,10 +158,11 @@ class GameViewModel : ViewModel() {
         val depth = state.aiDifficulty
         val version = gameVersion
         val aiSide = state.humanSide.opposite()
+        val positionCounts = state.positionOccurrences()
 
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                engine?.findBestMove(boardSnapshot, depth)
+                engine?.findBestMove(boardSnapshot, depth, positionCounts)
             }
 
             if (version != gameVersion) return@launch
@@ -272,12 +285,18 @@ class GameViewModel : ViewModel() {
             previousSession.roomId == cleanedRoomId &&
                 previousSession.serverUrl == cleanedServerUrl &&
                 it.isNotBlank()
+        } ?: lastOnlinePlayerId.takeIf {
+            lastOnlineRoomId == cleanedRoomId &&
+                lastOnlineServerUrl == cleanedServerUrl &&
+                it.isNotBlank()
         }
         onlinePollJob?.cancel()
         gameVersion++
         val version = gameVersion
         onlineFlippedOverride = null
-        onlineClient = OnlineGameClient(cleanedServerUrl)
+        onlineMoveInFlight = false
+        val client = OnlineGameClient(cleanedServerUrl)
+        onlineClient = client
         _gameState.value = GameState(mode = GameMode.ONLINE)
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
@@ -293,10 +312,13 @@ class GameViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    onlineClient!!.join(cleanedRoomId, previousPlayerId)
+                    client.join(cleanedRoomId, previousPlayerId)
                 }
             }.onSuccess { snapshot ->
                 if (version != gameVersion) return@onSuccess
+                lastOnlineServerUrl = cleanedServerUrl
+                lastOnlineRoomId = snapshot.roomId
+                lastOnlinePlayerId = snapshot.playerId
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = OnlineSessionState(
                     serverUrl = cleanedServerUrl,
@@ -323,10 +345,20 @@ class GameViewModel : ViewModel() {
 
     fun disconnectOnline() {
         gameVersion++
+        val client = onlineClient
+        val session = _onlineSession.value
         onlinePollJob?.cancel()
         onlinePollJob = null
         onlineClient = null
+        onlineMoveInFlight = false
         _onlineSession.value = OnlineSessionState()
+        if (client != null && session.roomId.isNotBlank() && session.playerId.isNotBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    client.leave(session.roomId, session.playerId)
+                }
+            }
+        }
     }
 
     fun requestOnlineUndo() {
@@ -346,6 +378,7 @@ class GameViewModel : ViewModel() {
         val session = _onlineSession.value
         if (!session.canMove) return
 
+        onlineMoveInFlight = true
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -356,6 +389,7 @@ class GameViewModel : ViewModel() {
                     )
                 }
             }.onSuccess { snapshot ->
+                onlineMoveInFlight = false
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
@@ -365,6 +399,7 @@ class GameViewModel : ViewModel() {
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
+                onlineMoveInFlight = false
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
                     message = error.message ?: "同步失败"
@@ -404,7 +439,7 @@ class GameViewModel : ViewModel() {
         onlinePollJob?.cancel()
         onlinePollJob = viewModelScope.launch {
             while (isActive) {
-                delay(1500)
+                delay(if (_onlineSession.value.playerCount < 2) 700 else 1200)
                 pollOnlineSnapshot()
             }
         }
@@ -414,6 +449,7 @@ class GameViewModel : ViewModel() {
         val client = onlineClient ?: return
         val session = _onlineSession.value
         if (session.playerId.isBlank() || session.roomId.isBlank()) return
+        if (onlineMoveInFlight) return
 
         runCatching {
             withContext(Dispatchers.IO) {
