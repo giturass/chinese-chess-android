@@ -28,7 +28,6 @@ fun HomeScreen(
     val prefs = remember {
         context.getSharedPreferences(OnlineServerConfig.PREFS_NAME, Context.MODE_PRIVATE)
     }
-    var showSettings by remember { mutableStateOf(false) }
     var serverUrl by rememberSaveable {
         mutableStateOf(
             prefs.getString(
@@ -38,65 +37,48 @@ fun HomeScreen(
         )
     }
     var serverUrlError by remember { mutableStateOf(false) }
+    var settingsPane by remember { mutableStateOf<HomeSettingsPane?>(null) }
 
-    if (showSettings) {
-        AlertDialog(
-            onDismissRequest = { showSettings = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val cleaned = serverUrl.trim().trimEnd('/')
-                            .ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
-                        if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
-                            serverUrlError = true
-                            return@TextButton
-                        }
-                        serverUrl = cleaned
-                        serverUrlError = false
-                        prefs.edit()
-                            .putString(OnlineServerConfig.SERVER_URL_KEY, cleaned)
-                            .apply()
-                        showSettings = false
-                    }
-                ) {
-                    Text("保存")
-                }
+    when (settingsPane) {
+        HomeSettingsPane.MENU -> SettingsMenuDialog(
+            onDismiss = {
+                settingsPane = null
             },
-            dismissButton = {
-                Row {
-                    TextButton(
-                        onClick = {
-                            serverUrl = OnlineServerConfig.DEFAULT_SERVER_URL
-                            serverUrlError = false
-                        }
-                    ) {
-                        Text("恢复默认")
-                    }
-                    TextButton(onClick = { showSettings = false }) {
-                        Text("取消")
-                    }
-                }
+            onOpenOnlineSettings = { settingsPane = HomeSettingsPane.ONLINE }
+        )
+
+        HomeSettingsPane.ONLINE -> OnlineSettingsDialog(
+            serverUrl = serverUrl,
+            serverUrlError = serverUrlError,
+            onServerUrlChange = {
+                serverUrl = it
+                serverUrlError = false
             },
-            title = { Text("联机设置") },
-            text = {
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = {
-                        serverUrl = it
-                        serverUrlError = false
-                    },
-                    singleLine = true,
-                    label = { Text("服务器地址") },
-                    isError = serverUrlError,
-                    supportingText = {
-                        if (serverUrlError) {
-                            Text("请输入 http:// 或 https:// 开头的地址")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            onRestoreDefault = {
+                serverUrl = OnlineServerConfig.DEFAULT_SERVER_URL
+                serverUrlError = false
+            },
+            onBack = { settingsPane = HomeSettingsPane.MENU },
+            onDismiss = {
+                settingsPane = null
+            },
+            onSave = {
+                val cleaned = serverUrl.trim().trimEnd('/')
+                    .ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
+                if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
+                    serverUrlError = true
+                } else {
+                    serverUrl = cleaned
+                    serverUrlError = false
+                    prefs.edit()
+                        .putString(OnlineServerConfig.SERVER_URL_KEY, cleaned)
+                        .apply()
+                    settingsPane = null
+                }
             }
         )
+
+        null -> Unit
     }
 
     Box(
@@ -105,7 +87,9 @@ fun HomeScreen(
             .battlefieldTexture()
     ) {
         IconButton(
-            onClick = { showSettings = true },
+            onClick = {
+                settingsPane = HomeSettingsPane.MENU
+            },
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(24.dp)
@@ -136,7 +120,7 @@ fun HomeScreen(
 
             MenuButton(
                 text = "人机对战",
-                subtitle = "与AI对弈",
+                subtitle = "与AI切磋",
                 onClick = onStartAiGame
             )
 
@@ -157,6 +141,124 @@ fun HomeScreen(
             )
         }
     }
+}
+
+@Composable
+private fun SettingsMenuDialog(
+    onDismiss: () -> Unit,
+    onOpenOnlineSettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        },
+        title = { Text("设置") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SettingsMenuButton(
+                    title = "联机设置",
+                    subtitle = "服务器地址与房间连接",
+                    onClick = onOpenOnlineSettings
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun SettingsMenuButton(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = Color(0xFF4A2C18),
+            contentColor = Color(0xFFFFE4A6)
+        ),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                color = Color(0xFFFFF0D4).copy(alpha = 0.78f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnlineSettingsDialog(
+    serverUrl: String,
+    serverUrlError: Boolean,
+    onServerUrlChange: (String) -> Unit,
+    onRestoreDefault: () -> Unit,
+    onBack: () -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text("保存")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onBack) {
+                Text("返回")
+            }
+        },
+        title = { Text("联机设置") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = onServerUrlChange,
+                    singleLine = true,
+                    label = { Text("服务器地址") },
+                    isError = serverUrlError,
+                    supportingText = {
+                        if (serverUrlError) {
+                            Text("请输入 http:// 或 https:// 开头的地址")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextButton(
+                    onClick = onRestoreDefault,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("恢复默认")
+                }
+            }
+        }
+    )
+}
+
+private enum class HomeSettingsPane {
+    MENU,
+    ONLINE
 }
 
 @Composable

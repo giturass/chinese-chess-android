@@ -80,7 +80,6 @@ fun PlayerControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = side,
-        metaText = "${side.displayName()} · 第 ${state.moveHistory.size / 2 + 1} 回合",
         modifier = modifier
     ) {
         SideActionRow(
@@ -99,7 +98,6 @@ fun AiControlPanel(
     state: GameState,
     statusMessage: String,
     isAiThinking: Boolean,
-    difficulty: Int,
     onUndo: () -> Unit,
     onDraw: () -> Unit,
     onResign: () -> Unit,
@@ -110,7 +108,6 @@ fun AiControlPanel(
         statusMessage = statusMessage,
         accentSide = state.humanSide,
         isAiThinking = isAiThinking,
-        metaText = "你执${state.humanSide.displayName().removeSuffix("方")} · 象眼搜索 $difficulty",
         modifier = modifier
     ) {
         Row(
@@ -155,7 +152,6 @@ fun OnlineControlPanel(
     state: GameState,
     statusMessage: String,
     side: Side,
-    connectionText: String,
     showActions: Boolean,
     canUndo: Boolean,
     onUndo: () -> Unit,
@@ -167,42 +163,17 @@ fun OnlineControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = side,
-        metaText = "${side.displayName()} · $connectionText",
         modifier = modifier
     ) {
         if (showActions) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onUndo,
-                    enabled = canUndo,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("悔棋", fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = onDraw,
-                    enabled = state.status == GameStatus.PLAYING,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                ) {
-                    Text("求和", fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = onResign,
-                    enabled = state.status == GameStatus.PLAYING,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                ) {
-                    Text("认输", fontSize = 13.sp)
-                }
-            }
+            SideActionRow(
+                side = side,
+                canUndo = canUndo,
+                canAct = state.status == GameStatus.PLAYING,
+                onUndo = onUndo,
+                onDraw = onDraw,
+                onResign = onResign
+            )
         }
     }
 }
@@ -213,7 +184,6 @@ fun EndgameControlPanel(
     statusMessage: String,
     side: Side,
     puzzleDescription: String,
-    difficulty: Int,
     showActions: Boolean,
     onUndo: () -> Unit,
     onHint: () -> Unit,
@@ -224,7 +194,6 @@ fun EndgameControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = side,
-        metaText = "${side.displayName()} · 难度 $difficulty",
         modifier = modifier
     ) {
         if (showActions) {
@@ -275,14 +244,12 @@ private fun GameInfoPanel(
     modifier: Modifier = Modifier,
     accentSide: Side? = null,
     isAiThinking: Boolean = false,
-    metaText: String? = null,
     actions: @Composable ColumnScope.() -> Unit
 ) {
     val accent = accentSide?.accentColor() ?: state.accentColor()
     val detailColor = if (accentSide == Side.BLACK) Color(0xFF111111) else Color(0xFF352112)
     val latestMove = state.lastMove?.toChineseNotation() ?: "尚未行棋"
     val headline = state.headline()
-    val meta = metaText ?: "第 ${state.moveHistory.size / 2 + 1} 回合"
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -303,7 +270,7 @@ private fun GameInfoPanel(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "$headline · $meta",
+                        text = headline,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = accent

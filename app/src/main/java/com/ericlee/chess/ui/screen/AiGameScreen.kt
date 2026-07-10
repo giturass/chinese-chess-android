@@ -49,7 +49,7 @@ import com.ericlee.chess.model.Piece
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.woodTexture
+import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -185,7 +185,7 @@ fun AiGameScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .woodTexture()
+                    .stoneChamberTexture()
                     .padding(padding)
             ) {
                 AiGameContent(
@@ -194,7 +194,6 @@ fun AiGameScreen(
                     legalMoves = legalMoves,
                     statusMessage = statusMessage,
                     isAiThinking = isAiThinking,
-                    difficulty = difficulty,
                     onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
                     onUndo = { viewModel.undoMove() },
                     onDraw = { viewModel.agreeDraw(state.humanSide) },
@@ -212,7 +211,6 @@ private fun AiGameContent(
     legalMoves: List<Move>,
     statusMessage: String,
     isAiThinking: Boolean,
-    difficulty: Int,
     onPositionClick: (Int, Int) -> Unit,
     onUndo: () -> Unit,
     onDraw: () -> Unit,
@@ -238,7 +236,6 @@ private fun AiGameContent(
                 state = state,
                 statusMessage = statusMessage,
                 isAiThinking = isAiThinking,
-                difficulty = difficulty,
                 onUndo = onUndo,
                 onDraw = onDraw,
                 onResign = onResign,
@@ -287,7 +284,7 @@ private fun AiSideSelector(
             color = Color(0xFFFFE4A6)
         )
         Text(
-            text = "选择执棋方",
+            text = "选择先后手",
             fontSize = 15.sp,
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
@@ -298,7 +295,7 @@ private fun AiSideSelector(
                 .fillMaxWidth()
                 .height(58.dp)
         ) {
-            Text("我执红", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("我先下", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
         FilledTonalButton(
@@ -307,7 +304,7 @@ private fun AiSideSelector(
                 .fillMaxWidth()
                 .height(58.dp)
         ) {
-            Text("我执黑", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("AI先下", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -341,7 +338,7 @@ private fun DifficultySelector(
             color = Color(0xFFFFE4A6)
         )
         Text(
-            text = if (humanSide == Side.RED) "我执红 · 选择难度" else "我执黑 · AI 执红先行",
+            text = if (humanSide == Side.RED) "我先下 · 选择难度" else "AI先下 · 选择难度",
             fontSize = 15.sp,
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
@@ -349,7 +346,7 @@ private fun DifficultySelector(
         Spacer(modifier = Modifier.height(14.dp))
 
         FilledTonalButton(onClick = onBackToSide) {
-            Text("重选红黑")
+            Text("重选先后手")
         }
 
         Spacer(modifier = Modifier.height(18.dp))
@@ -403,7 +400,7 @@ private enum class AiConfirmAction(
     val title: String,
     val message: String
 ) {
-    FLIP("确认调转红黑？", "会重新开局并互换执棋方。AI 执红时将先行。"),
+    FLIP("确认调转先后手？", "会重新开局并互换先后手。AI 先下时将执红先行。"),
     RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。")
 }
 

@@ -10,67 +10,58 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.sin
 
-fun Modifier.woodTexture(): Modifier = drawBehind {
+fun Modifier.stoneChamberTexture(): Modifier = drawBehind {
     drawRect(
-        brush = Brush.linearGradient(
+        brush = Brush.verticalGradient(
             colors = listOf(
-                Color(0xFF3A1F10),
-                Color(0xFF6B3C1C),
-                Color(0xFF9B602A),
-                Color(0xFF5A2F16)
-            ),
-            start = Offset.Zero,
-            end = Offset(size.width, size.height)
+                Color(0xFF030405),
+                Color(0xFF101315),
+                Color(0xFF24292B),
+                Color(0xFF090A0B)
+            )
         )
     )
 
-    val plankWidth = (size.width / 4.2f).coerceAtLeast(92f)
-    var seamX = plankWidth
-    while (seamX < size.width) {
+    val blockHeight = (size.height / 8.5f).coerceAtLeast(72f)
+    var blockTop = -blockHeight * 0.35f
+    var row = 0
+    while (blockTop < size.height) {
+        val blockWidth = (size.width / 3.15f).coerceAtLeast(96f)
+        var blockLeft = if (row % 2 == 0) -blockWidth * 0.38f else 0f
         drawLine(
-            color = Color.Black.copy(alpha = 0.24f),
-            start = Offset(seamX, 0f),
-            end = Offset(seamX, size.height),
-            strokeWidth = 2.2f
+            color = Color.Black.copy(alpha = 0.48f),
+            start = Offset(0f, blockTop),
+            end = Offset(size.width, blockTop),
+            strokeWidth = 2.4f
         )
         drawLine(
-            color = Color.White.copy(alpha = 0.08f),
-            start = Offset(seamX + 2f, 0f),
-            end = Offset(seamX + 2f, size.height),
-            strokeWidth = 1.2f
+            color = Color.White.copy(alpha = 0.035f),
+            start = Offset(0f, blockTop + 2f),
+            end = Offset(size.width, blockTop + 2f),
+            strokeWidth = 1.1f
         )
-        seamX += plankWidth
-    }
-
-    for (i in 0..42) {
-        val baseX = size.width * i / 42f
-        val drift = sin(i * 1.7f) * 18f
-        val alpha = 0.08f + (i % 5) * 0.015f
-        drawLine(
-            color = Color(0xFFFFD08A).copy(alpha = alpha),
-            start = Offset(baseX + drift, 0f),
-            end = Offset(baseX - drift * 0.35f, size.height),
-            strokeWidth = 1.1f + (i % 3) * 0.45f
-        )
-        if (i % 3 == 0) {
+        while (blockLeft < size.width) {
             drawLine(
-                color = Color.Black.copy(alpha = 0.12f),
-                start = Offset(baseX + drift + 5f, 0f),
-                end = Offset(baseX - drift * 0.2f + 5f, size.height),
-                strokeWidth = 1.5f
+                color = Color.Black.copy(alpha = 0.34f),
+                start = Offset(blockLeft, blockTop),
+                end = Offset(blockLeft, blockTop + blockHeight),
+                strokeWidth = 2f
             )
+            blockLeft += blockWidth
         }
+        blockTop += blockHeight
+        row++
     }
 
-    for (i in 0..10) {
-        val cx = size.width * ((i * 29 % 100) / 100f)
-        val cy = size.height * ((i * 47 % 100) / 100f)
-        val radius = 24f + (i % 4) * 9f
+    for (i in 0..34) {
+        val cx = size.width * ((i * 37 % 100) / 100f)
+        val cy = size.height * ((i * 53 % 100) / 100f)
+        val radius = 42f + (i % 5) * 18f
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFF2E170C).copy(alpha = 0.26f),
-                    Color(0xFF7B451D).copy(alpha = 0.12f),
+                    Color.White.copy(alpha = 0.035f),
+                    Color(0xFF5E686B).copy(alpha = 0.045f),
                     Color.Transparent
                 ),
                 center = Offset(cx, cy),
@@ -80,6 +71,112 @@ fun Modifier.woodTexture(): Modifier = drawBehind {
             center = Offset(cx, cy)
         )
     }
+
+    for (i in 0..18) {
+        val startX = size.width * ((i * 41 % 100) / 100f)
+        val startY = size.height * (0.08f + (i * 17 % 70) / 100f)
+        val crack = Path().apply {
+            moveTo(startX, startY)
+            var x = startX
+            var y = startY
+            for (step in 1..4) {
+                x += sin((i + step) * 1.7f) * size.width * 0.035f
+                y += size.height * (0.018f + (step % 2) * 0.012f)
+                lineTo(x, y)
+            }
+        }
+        drawPath(
+            path = crack,
+            color = Color.Black.copy(alpha = 0.26f),
+            style = Stroke(width = 1.2f + (i % 3) * 0.45f)
+        )
+        if (i % 2 == 0) {
+            drawPath(
+                path = crack,
+                color = Color.White.copy(alpha = 0.028f),
+                style = Stroke(width = 0.8f)
+            )
+        }
+    }
+
+    val floorTop = size.height * 0.64f
+    drawRect(
+        brush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0x00101010),
+                Color(0xFF1A1D1F),
+                Color(0xFF070809)
+            ),
+            startY = floorTop - size.height * 0.12f,
+            endY = size.height
+        ),
+        topLeft = Offset(0f, floorTop),
+        size = Size(size.width, size.height - floorTop)
+    )
+    for (i in 0..8) {
+        val x = size.width * i / 8f
+        drawLine(
+            color = Color.Black.copy(alpha = 0.30f),
+            start = Offset(size.width / 2f, floorTop),
+            end = Offset(x, size.height),
+            strokeWidth = 1.6f
+        )
+    }
+    for (i in 1..5) {
+        val y = floorTop + (size.height - floorTop) * (i / 5f) * (i / 5f)
+        drawLine(
+            color = Color.Black.copy(alpha = 0.34f),
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
+            strokeWidth = 1.8f
+        )
+    }
+
+    val lightCenter = Offset(size.width * 0.5f, -size.height * 0.08f)
+    val beam = Path().apply {
+        moveTo(size.width * 0.42f, 0f)
+        lineTo(size.width * 0.08f, size.height * 0.72f)
+        lineTo(size.width * 0.92f, size.height * 0.72f)
+        lineTo(size.width * 0.58f, 0f)
+        close()
+    }
+    drawPath(
+        path = beam,
+        brush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0x55FFE5B0),
+                Color(0x22D6B06A),
+                Color.Transparent
+            ),
+            startY = 0f,
+            endY = size.height * 0.74f
+        )
+    )
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0x77FFE8BB),
+                Color(0x24C79A55),
+                Color.Transparent
+            ),
+            center = lightCenter,
+            radius = size.width * 0.58f
+        ),
+        radius = size.width * 0.58f,
+        center = lightCenter
+    )
+    drawRect(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color.Transparent,
+                Color.Black.copy(alpha = 0.70f)
+            ),
+            center = Offset(size.width * 0.5f, size.height * 0.42f),
+            radius = maxOf(size.width, size.height) * 0.72f
+        ),
+        topLeft = Offset.Zero,
+        size = size
+    )
 }
 
 fun Modifier.battlefieldTexture(): Modifier = drawBehind {

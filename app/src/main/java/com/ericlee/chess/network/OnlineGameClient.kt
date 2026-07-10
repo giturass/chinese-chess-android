@@ -26,13 +26,25 @@ class OnlineGameClient(
         )
     }
 
-    fun snapshot(roomId: String, playerId: String): OnlineSnapshot =
-        request(
-            path = "/api/rooms/${roomId.pathPart()}?playerId=${playerId.queryPart()}",
+    fun snapshot(
+        roomId: String,
+        playerId: String,
+        sinceRevision: Long? = null,
+        waitMs: Int = 0
+    ): OnlineSnapshot {
+        val waitQuery = if (sinceRevision != null && waitMs > 0) {
+            "&since=$sinceRevision&wait=$waitMs"
+        } else {
+            ""
+        }
+        return request(
+            path = "/api/rooms/${roomId.pathPart()}?playerId=${playerId.queryPart()}$waitQuery",
             method = "GET",
             body = null,
-            responseClass = OnlineSnapshot::class.java
+            responseClass = OnlineSnapshot::class.java,
+            readTimeoutMs = if (waitMs > 0) waitMs + 5000 else DEFAULT_READ_TIMEOUT_MS
         )
+    }
 
     fun sendMove(roomId: String, playerId: String, move: OnlineMoveDto): OnlineSnapshot =
         request(
@@ -63,7 +75,8 @@ class OnlineGameClient(
         path: String,
         method: String,
         body: Any?,
-        responseClass: Class<T>
+        responseClass: Class<T>,
+        readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS
     ): T {
         require(baseUrl.startsWith("https://") || baseUrl.startsWith("http://")) {
             "服务端地址无效"
@@ -72,7 +85,7 @@ class OnlineGameClient(
         val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 8000
-            readTimeout = 8000
+            readTimeout = readTimeoutMs
             setRequestProperty("Accept", "application/json")
             if (body != null) {
                 doOutput = true
@@ -111,4 +124,8 @@ class OnlineGameClient(
     private data class ErrorResponse(val error: String = "")
 
     private data class LeaveResponse(val ok: Boolean = false)
+
+    private companion object {
+        const val DEFAULT_READ_TIMEOUT_MS = 8000
+    }
 }

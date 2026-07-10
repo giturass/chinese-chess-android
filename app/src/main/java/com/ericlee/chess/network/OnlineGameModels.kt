@@ -30,6 +30,7 @@ data class OnlineSnapshot(
     val moves: List<OnlineMoveDto> = emptyList(),
     val pendingAction: OnlinePendingAction? = null,
     val playerCount: Int = 0,
+    val revision: Long = 0L,
     val message: String = ""
 )
 
@@ -85,6 +86,7 @@ data class OnlineSessionState(
     val connecting: Boolean = false,
     val playerCount: Int = 0,
     val pendingAction: OnlinePendingAction? = null,
+    val revision: Long = 0L,
     val message: String = ""
 ) {
     val canMove: Boolean get() = connected && side != null && playerCount >= 2

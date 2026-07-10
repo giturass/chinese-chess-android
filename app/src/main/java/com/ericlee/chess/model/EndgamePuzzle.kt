@@ -7,7 +7,9 @@ data class EndgamePuzzle(
     val description: String,
     val pieces: List<PuzzlePiece>,
     val solution: List<String>,
-    val hint: String
+    val hint: String,
+    val category: String = "经典杀法",
+    val goal: String = "红先取胜"
 )
 
 data class PuzzlePiece(

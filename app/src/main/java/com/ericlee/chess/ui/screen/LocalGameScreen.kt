@@ -41,7 +41,7 @@ import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.woodTexture
+import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,7 +163,7 @@ fun LocalGameScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (gameStarted) Modifier.woodTexture() else Modifier.battlefieldTexture())
+                .then(if (gameStarted) Modifier.stoneChamberTexture() else Modifier.battlefieldTexture())
                 .padding(padding)
         ) {
             if (!gameStarted) {
@@ -245,7 +245,7 @@ private fun LocalSideSelector(
             color = Color(0xFFFFE4A6)
         )
         Text(
-            text = "选择下方所执方",
+            text = "选择谁在下方",
             fontSize = 15.sp,
             color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
         )
@@ -256,7 +256,7 @@ private fun LocalSideSelector(
                 .fillMaxWidth()
                 .height(58.dp)
         ) {
-            Text("下方执红", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("执红在下", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(12.dp))
         FilledTonalButton(
@@ -265,7 +265,7 @@ private fun LocalSideSelector(
                 .fillMaxWidth()
                 .height(58.dp)
         ) {
-            Text("下方执黑", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("执黑在下", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

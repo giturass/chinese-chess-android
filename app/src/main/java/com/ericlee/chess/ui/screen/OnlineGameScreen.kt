@@ -1,6 +1,7 @@
 package com.ericlee.chess.ui.screen
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,7 +58,7 @@ import com.ericlee.chess.model.Side
 import com.ericlee.chess.network.OnlineServerConfig
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.woodTexture
+import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 import kotlin.random.Random
 
@@ -205,7 +207,7 @@ fun OnlineGameScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .woodTexture()
+                    .stoneChamberTexture()
                     .padding(padding)
             ) {
                 OnlineGameContent(
@@ -239,7 +241,6 @@ fun OnlineGameScreen(
                         state = state,
                         statusMessage = statusMessage,
                         side = playerSide,
-                        connectionText = "你执${playerSide.displayName().removeSuffix("方")}",
                         showActions = true,
                         canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },
@@ -337,7 +338,19 @@ private fun OnlineJoinPanel(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     label = { Text("房间号") },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFFFFF7D6),
+                        unfocusedTextColor = Color(0xFFFFF7D6),
+                        cursorColor = Color(0xFFFFD36A),
+                        focusedLabelColor = Color(0xFFFFD36A),
+                        unfocusedLabelColor = Color(0xFFFFE4A6),
+                        focusedBorderColor = Color(0xFFFFD36A),
+                        unfocusedBorderColor = Color(0xFFFFE4A6),
+                        focusedContainerColor = Color(0xCC171411),
+                        unfocusedContainerColor = Color(0xCC171411)
+                    )
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Button(
@@ -378,8 +391,9 @@ private fun OnlineRoomStatusBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = Color(0xEAF7E5C7),
+        color = Color(0xF01B1714),
         shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color(0xFFFFD36A).copy(alpha = 0.9f)),
         tonalElevation = 2.dp
     ) {
         Row(
@@ -390,16 +404,16 @@ private fun OnlineRoomStatusBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "房间 $roomId",
+                text = "房间号：$roomId",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF4A2A13),
+                color = Color(0xFFFFE4A6),
                 modifier = Modifier.weight(1f)
             )
             Text(
                 text = connectionState,
                 fontSize = 14.sp,
-                color = Color(0xFFB32318),
+                color = Color(0xFFFFC857),
                 fontWeight = FontWeight.Bold
             )
         }

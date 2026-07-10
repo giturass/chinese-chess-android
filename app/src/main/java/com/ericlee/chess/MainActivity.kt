@@ -3,14 +3,25 @@ package com.ericlee.chess
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.ericlee.chess.audio.GameAudio
 import com.ericlee.chess.ui.screen.AiGameScreen
 import com.ericlee.chess.ui.screen.EndgameScreen
 import com.ericlee.chess.ui.screen.HomeScreen
@@ -52,6 +63,33 @@ class MainActivity : ComponentActivity() {
 fun ChineseChessApp() {
     val navController = rememberNavController()
     val gameViewModel: GameViewModel = viewModel()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val audio = remember { GameAudio() }
+    val state by gameViewModel.gameState.collectAsState()
+    var heardMoveCount by remember { mutableStateOf(state.moveHistory.size) }
+
+    DisposableEffect(lifecycleOwner, audio) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> audio.resumeBackground()
+                Lifecycle.Event.ON_STOP -> audio.pauseBackground()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        audio.startBackground()
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            audio.release()
+        }
+    }
+
+    LaunchedEffect(state.moveHistory.size, state.lastMove) {
+        if (state.moveHistory.size > heardMoveCount) {
+            state.lastMove?.let { audio.playMove(capture = it.captured != null) }
+        }
+        heardMoveCount = state.moveHistory.size
+    }
 
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {

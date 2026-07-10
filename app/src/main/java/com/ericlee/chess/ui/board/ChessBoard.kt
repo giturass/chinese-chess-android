@@ -200,10 +200,29 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     val outerSize = Size(cellW * 8.9f, cellH * 9.9f)
     val innerTopLeft = Offset(offsetX - cellW * 0.2f, offsetY - cellH * 0.2f)
     val innerSize = Size(cellW * 8.4f, cellH * 9.4f)
+    val overheadLight = Offset(size.width / 2f, outerTopLeft.y - cellH * 1.6f)
+
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0x66FFE8B5),
+                Color(0x1AD6AE68),
+                Color.Transparent
+            ),
+            center = overheadLight,
+            radius = cellW * 6.6f
+        ),
+        radius = cellW * 6.6f,
+        center = overheadLight
+    )
 
     drawRoundRect(
-        color = Color.Black.copy(alpha = 0.34f),
-        topLeft = Offset(outerTopLeft.x + cellW * 0.08f, outerTopLeft.y + cellH * 0.1f),
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x66000000), Color(0xC8000000)),
+            center = Offset(size.width / 2f, outerTopLeft.y + outerSize.height * 0.56f),
+            radius = cellW * 5.8f
+        ),
+        topLeft = Offset(outerTopLeft.x + cellW * 0.1f, outerTopLeft.y + cellH * 0.16f),
         size = outerSize,
         cornerRadius = CornerRadius(cellW * 0.16f, cellW * 0.16f)
     )
@@ -315,6 +334,34 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
         size = innerSize,
         cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f),
         style = Stroke(width = 3f)
+    )
+    drawRoundRect(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0x4CFFF2C6),
+                Color(0x18FFE0A0),
+                Color.Transparent
+            ),
+            center = Offset(innerTopLeft.x + innerSize.width / 2f, innerTopLeft.y + innerSize.height * 0.08f),
+            radius = innerSize.width * 0.72f
+        ),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f)
+    )
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            colors = listOf(
+                Color(0x28FFF0C0),
+                Color.Transparent,
+                Color(0x26000000)
+            ),
+            startY = innerTopLeft.y,
+            endY = innerTopLeft.y + innerSize.height
+        ),
+        topLeft = innerTopLeft,
+        size = innerSize,
+        cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f)
     )
     drawRoundRect(
         color = Color(0xFFFFD48A).copy(alpha = 0.22f),
@@ -702,10 +749,16 @@ private fun DrawScope.drawBoardAlert(text: String, status: GameStatus, cellW: Fl
     }
     val center = Offset(size.width / 2f, size.height / 2f)
     val textSize = cellW * if (isFinal) 1.14f else 1.02f
+    val panelAlpha = if (isFinal) 0.52f else 0.34f
+    val textAlpha = if (isFinal) 0.84f else 0.72f
 
     drawRoundRect(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0xF8FFE8AC), Color(0xD8D29045), Color(0x001F0F06)),
+            colors = listOf(
+                Color(0xFFFFE8AC).copy(alpha = panelAlpha),
+                Color(0xFFD29045).copy(alpha = panelAlpha * 0.62f),
+                Color.Transparent
+            ),
             center = center,
             radius = cellW * 3.4f
         ),
@@ -717,19 +770,19 @@ private fun DrawScope.drawBoardAlert(text: String, status: GameStatus, cellW: Fl
     drawContext.canvas.nativeCanvas.apply {
         val y = center.y + textSize * 0.34f
         val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color(0xFFFFE9B1).toArgb()
+            color = Color(0xCCFFE9B1).toArgb()
             style = Paint.Style.STROKE
             strokeWidth = textSize * 0.12f
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
             this.textSize = textSize
-            setShadowLayer(textSize * 0.16f, 0f, textSize * 0.08f, Color(0xAA1D0E06).toArgb())
+            setShadowLayer(textSize * 0.12f, 0f, textSize * 0.06f, Color(0x661D0E06).toArgb())
         }
         val fillPaint = Paint(strokePaint).apply {
-            color = fillColor.toArgb()
+            color = fillColor.copy(alpha = textAlpha).toArgb()
             style = Paint.Style.FILL
             strokeWidth = 0f
-            setShadowLayer(textSize * 0.06f, 0f, 0f, Color(0x66FFF2C3).toArgb())
+            setShadowLayer(textSize * 0.04f, 0f, 0f, Color(0x4DFFF2C3).toArgb())
         }
         drawText(text, center.x, y, strokePaint)
         drawText(text, center.x, y, fillPaint)

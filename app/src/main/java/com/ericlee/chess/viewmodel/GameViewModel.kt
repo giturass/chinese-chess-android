@@ -44,6 +44,7 @@ class GameViewModel : ViewModel() {
     private var onlinePollJob: Job? = null
     private var onlineFlippedOverride: Boolean? = null
     private var onlineMoveInFlight = false
+    private var onlineRevision = 0L
     private var lastOnlineServerUrl = ""
     private var lastOnlineRoomId = ""
     private var lastOnlinePlayerId = ""
@@ -81,6 +82,7 @@ class GameViewModel : ViewModel() {
     fun loadEndgame(puzzle: EndgamePuzzle) {
         gameVersion++
         val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
+        engine = ChessEngine(Side.BLACK)
         _gameState.value = GameState(
             board = board,
             currentSide = Side.RED,
@@ -98,6 +100,7 @@ class GameViewModel : ViewModel() {
         if (_isAiThinking.value) return
 
         if (state.mode == GameMode.AI && state.currentSide != state.humanSide) return
+        if (state.mode == GameMode.ENDGAME && state.currentSide != Side.RED) return
         if (state.mode == GameMode.ONLINE) {
             val session = _onlineSession.value
             if (!session.canMove || state.currentSide != session.side) return
@@ -144,6 +147,14 @@ class GameViewModel : ViewModel() {
         }
 
         if (newState.status == GameStatus.PLAYING &&
+            newState.mode == GameMode.ENDGAME &&
+            newState.currentSide == Side.BLACK
+        ) {
+            triggerEndgameDefense()
+            return
+        }
+
+        if (newState.status == GameStatus.PLAYING &&
             newState.mode == GameMode.AI &&
             newState.currentSide != newState.humanSide
         ) {
@@ -176,6 +187,29 @@ class GameViewModel : ViewModel() {
         }
     }
 
+    private fun triggerEndgameDefense() {
+        _isAiThinking.value = true
+        val state = _gameState.value
+        val boardSnapshot = state.board.copy()
+        val version = gameVersion
+        val positionCounts = state.positionOccurrences()
+
+        viewModelScope.launch {
+            val move = withContext(Dispatchers.Default) {
+                engine?.findBestMove(boardSnapshot, 2, positionCounts)
+            }
+
+            if (version != gameVersion) return@launch
+
+            if (move != null && _gameState.value.currentSide == Side.BLACK) {
+                val newState = _gameState.value.makeMove(move)
+                _gameState.value = newState
+                updateStatusMessage(newState)
+            }
+            _isAiThinking.value = false
+        }
+    }
+
     private fun updateStatusMessage(state: GameState) {
         _statusMessage.value = when (state.status) {
             GameStatus.RED_WIN -> "红方获胜！"
@@ -200,10 +234,11 @@ class GameViewModel : ViewModel() {
         if (_isAiThinking.value) return
         if (side != null && state.mode == GameMode.LOCAL && state.lastMoveSide != side) return
 
-        if (state.mode == GameMode.AI) {
-            // Undo both AI and human move
+        if (state.mode == GameMode.AI || state.mode == GameMode.ENDGAME) {
+            // Undo both engine and human move when the engine has answered.
             var s = state.undoLastMove()
-            if (s.moveHistory.isNotEmpty() && s.currentSide != state.humanSide) {
+            val humanSide = if (state.mode == GameMode.ENDGAME) Side.RED else state.humanSide
+            if (s.moveHistory.isNotEmpty() && s.currentSide != humanSide) {
                 s = s.undoLastMove()
             }
             _gameState.value = s
@@ -296,6 +331,7 @@ class GameViewModel : ViewModel() {
         val version = gameVersion
         onlineFlippedOverride = null
         onlineMoveInFlight = false
+        onlineRevision = 0L
         val client = OnlineGameClient(cleanedServerUrl)
         onlineClient = client
         _gameState.value = GameState(mode = GameMode.ONLINE)
@@ -320,6 +356,7 @@ class GameViewModel : ViewModel() {
                 lastOnlineServerUrl = cleanedServerUrl
                 lastOnlineRoomId = snapshot.roomId
                 lastOnlinePlayerId = snapshot.playerId
+                onlineRevision = snapshot.revision
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = OnlineSessionState(
                     serverUrl = cleanedServerUrl,
@@ -329,6 +366,7 @@ class GameViewModel : ViewModel() {
                     connected = true,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已连接" }
                 )
                 startOnlinePolling()
@@ -352,6 +390,7 @@ class GameViewModel : ViewModel() {
         onlinePollJob = null
         onlineClient = null
         onlineMoveInFlight = false
+        onlineRevision = 0L
         _onlineSession.value = OnlineSessionState()
         if (client != null && session.roomId.isNotBlank() && session.playerId.isNotBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
@@ -380,6 +419,7 @@ class GameViewModel : ViewModel() {
         if (!session.canMove) return
 
         onlineMoveInFlight = true
+        val version = gameVersion
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -390,16 +430,20 @@ class GameViewModel : ViewModel() {
                     )
                 }
             }.onSuccess { snapshot ->
+                if (version != gameVersion) return@onSuccess
                 onlineMoveInFlight = false
+                if (snapshot.revision < onlineRevision) return@onSuccess
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
                     connecting = false,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
+                if (version != gameVersion) return@onFailure
                 onlineMoveInFlight = false
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
@@ -413,6 +457,7 @@ class GameViewModel : ViewModel() {
         val client = onlineClient ?: return
         val session = _onlineSession.value
         if (!session.canMove) return
+        val version = gameVersion
 
         viewModelScope.launch {
             runCatching {
@@ -420,14 +465,18 @@ class GameViewModel : ViewModel() {
                     client.sendAction(session.roomId, session.playerId, action)
                 }
             }.onSuccess { snapshot ->
+                if (version != gameVersion) return@onSuccess
+                if (snapshot.revision < onlineRevision) return@onSuccess
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
+                if (version != gameVersion) return@onFailure
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
                     message = error.message ?: "同步失败"
@@ -438,34 +487,52 @@ class GameViewModel : ViewModel() {
 
     private fun startOnlinePolling() {
         onlinePollJob?.cancel()
+        val version = gameVersion
         onlinePollJob = viewModelScope.launch {
-            while (isActive) {
-                delay(if (_onlineSession.value.playerCount < 2) 700 else 1200)
-                pollOnlineSnapshot()
+            while (isActive && version == gameVersion) {
+                val startedAt = System.currentTimeMillis()
+                pollOnlineSnapshot(waitForChange = true, version = version)
+                val elapsed = System.currentTimeMillis() - startedAt
+                if (elapsed < MIN_ONLINE_POLL_INTERVAL_MS) {
+                    delay(MIN_ONLINE_POLL_INTERVAL_MS - elapsed)
+                }
             }
         }
     }
 
-    private suspend fun pollOnlineSnapshot() {
+    private suspend fun pollOnlineSnapshot(waitForChange: Boolean = false, version: Int = gameVersion) {
         val client = onlineClient ?: return
         val session = _onlineSession.value
+        if (version != gameVersion) return
         if (session.playerId.isBlank() || session.roomId.isBlank()) return
         if (onlineMoveInFlight) return
+        val beforeRevision = onlineRevision
+        val longPoll = waitForChange && beforeRevision > 0L
 
         runCatching {
             withContext(Dispatchers.IO) {
-                client.snapshot(session.roomId, session.playerId)
+                client.snapshot(
+                    roomId = session.roomId,
+                    playerId = session.playerId,
+                    sinceRevision = beforeRevision.takeIf { longPoll },
+                    waitMs = if (longPoll) ONLINE_STATE_WAIT_MS else 0
+                )
             }
         }.onSuccess { snapshot ->
+            if (version != gameVersion) return@onSuccess
+            if (snapshot.revision < onlineRevision) return@onSuccess
+            if (onlineMoveInFlight && snapshot.revision <= onlineRevision) return@onSuccess
             applyOnlineSnapshot(snapshot)
             _onlineSession.value = _onlineSession.value.copy(
                 connected = true,
                 connecting = false,
                 playerCount = snapshot.playerCount,
                 pendingAction = snapshot.pendingAction,
+                revision = snapshot.revision,
                 message = snapshot.message.ifBlank { "已连接" }
             )
         }.onFailure { error ->
+            if (version != gameVersion) return@onFailure
             _onlineSession.value = _onlineSession.value.copy(
                 connected = false,
                 message = error.message ?: "连接中断"
@@ -474,6 +541,7 @@ class GameViewModel : ViewModel() {
     }
 
     private fun applyOnlineSnapshot(snapshot: OnlineSnapshot) {
+        onlineRevision = maxOf(onlineRevision, snapshot.revision)
         val playerSide = snapshot.side
         val previousState = _gameState.value
         var state = GameState(
@@ -510,5 +578,10 @@ class GameViewModel : ViewModel() {
     override fun onCleared() {
         onlinePollJob?.cancel()
         super.onCleared()
+    }
+
+    private companion object {
+        const val ONLINE_STATE_WAIT_MS = 15_000
+        const val MIN_ONLINE_POLL_INTERVAL_MS = 250L
     }
 }
