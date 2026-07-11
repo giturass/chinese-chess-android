@@ -229,6 +229,9 @@ private fun AiGameContent(
             .fillMaxSize()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         content = {
+            if (isAiThinking) {
+                AiThinkingBadge(modifier = Modifier.layoutId("aiStatus"))
+            }
             Box(modifier = Modifier.layoutId("board")) {
                 ChessBoard(
                     board = state.board,
@@ -240,13 +243,6 @@ private fun AiGameContent(
                     isFlipped = state.isFlipped,
                     onPositionClick = onPositionClick
                 )
-                if (isAiThinking) {
-                    AiThinkingBadge(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 8.dp)
-                    )
-                }
             }
             AiControlPanel(
                 state = state,
@@ -270,11 +266,16 @@ private fun AiGameContent(
         val boardPlaceable = measurables
             .first { it.layoutId == "board" }
             .measure(looseConstraints.copy(maxHeight = boardHeight))
+        val aiStatusPlaceable = measurables
+            .firstOrNull { it.layoutId == "aiStatus" }
+            ?.measure(looseConstraints)
         val contentHeight = boardPlaceable.height + gap + panelPlaceable.height
         val boardY = ((constraints.maxHeight - contentHeight) / 2).coerceAtLeast(0)
         val panelY = boardY + boardPlaceable.height + gap
+        val aiStatusY = ((boardY - (aiStatusPlaceable?.height ?: 0) - gap * 2)).coerceAtLeast(0)
 
         layout(constraints.maxWidth, constraints.maxHeight) {
+            aiStatusPlaceable?.place((constraints.maxWidth - aiStatusPlaceable.width) / 2, aiStatusY)
             boardPlaceable.place((constraints.maxWidth - boardPlaceable.width) / 2, boardY)
             panelPlaceable.place((constraints.maxWidth - panelPlaceable.width) / 2, panelY)
         }

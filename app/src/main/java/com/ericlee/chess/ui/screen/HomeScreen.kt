@@ -278,8 +278,13 @@ private fun OnlineSettingsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onBack) {
-                Text("返回")
+            Row {
+                TextButton(onClick = onRestoreDefault) {
+                    Text("恢复默认")
+                }
+                TextButton(onClick = onBack) {
+                    Text("返回")
+                }
             }
         },
         title = { Text("联机设置") },
@@ -301,12 +306,6 @@ private fun OnlineSettingsDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-                TextButton(
-                    onClick = onRestoreDefault,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("恢复默认")
-                }
             }
         }
     )

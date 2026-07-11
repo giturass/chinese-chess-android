@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -364,15 +365,20 @@ private fun GameInfoPanel(
                                     color = accent
                                 )
                             }
-                            Text(
-                                text = notation.expanded,
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .heightIn(max = 86.dp)
                                     .verticalScroll(notationScrollState),
-                                fontSize = 12.sp,
-                                color = detailColor.copy(alpha = 0.86f),
-                                lineHeight = 18.sp
-                            )
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                notation.lines.forEach { line ->
+                                    MoveNotationRow(
+                                        line = line,
+                                        textColor = detailColor.copy(alpha = 0.86f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -456,26 +462,95 @@ private fun GameState.accentColor(): Color = when {
 }
 
 private fun GameState.fullMoveNotation(): MoveNotationText {
-    if (moveHistory.isEmpty()) return MoveNotationText("尚未行棋", "尚未行棋")
-    val expanded = moveHistory
+    if (moveHistory.isEmpty()) return MoveNotationText("尚未行棋", emptyList())
+    val lines = moveHistory
         .chunked(2)
         .mapIndexed { index, pair ->
-            val redMove = pair.getOrNull(0)?.toChineseNotation().orEmpty()
-            val blackMove = pair.getOrNull(1)?.toChineseNotation().orEmpty()
-            if (blackMove.isBlank()) {
-                "${index + 1}. $redMove"
-            } else {
-                "${index + 1}. $redMove  $blackMove"
-            }
+            MoveNotationLine(
+                number = index + 1,
+                redMove = pair.getOrNull(0)?.toChineseNotation().orEmpty(),
+                blackMove = pair.getOrNull(1)?.toChineseNotation().orEmpty()
+            )
         }
-        .joinToString("\n")
     return MoveNotationText(
-        collapsed = expanded.replace('\n', ' '),
-        expanded = expanded
+        collapsed = lines.last().collapsedText(),
+        lines = lines
     )
+}
+
+@Composable
+private fun MoveNotationRow(
+    line: MoveNotationLine,
+    textColor: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "${line.number}.",
+            modifier = Modifier.width(28.dp),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = "红",
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .width(18.dp),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFB32318)
+        )
+        Text(
+            text = line.redMove,
+            modifier = Modifier.weight(1f),
+            fontSize = 12.sp,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (line.blackMove.isNotBlank()) {
+            Text(
+                text = "黑",
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .width(18.dp),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F1711)
+            )
+            Text(
+                text = line.blackMove,
+                modifier = Modifier.weight(1f),
+                fontSize = 12.sp,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private fun MoveNotationLine.collapsedText(): String = buildString {
+    append(number)
+    append(".红 ")
+    append(redMove)
+    if (blackMove.isNotBlank()) {
+        append("  黑 ")
+        append(blackMove)
+    }
 }
 
 private data class MoveNotationText(
     val collapsed: String,
-    val expanded: String
+    val lines: List<MoveNotationLine>
+)
+
+private data class MoveNotationLine(
+    val number: Int,
+    val redMove: String,
+    val blackMove: String
 )
