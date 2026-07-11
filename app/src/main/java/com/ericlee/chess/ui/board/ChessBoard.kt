@@ -200,26 +200,26 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     val outerSize = Size(cellW * 8.9f, cellH * 9.9f)
     val innerTopLeft = Offset(offsetX - cellW * 0.2f, offsetY - cellH * 0.2f)
     val innerSize = Size(cellW * 8.4f, cellH * 9.4f)
-    val overheadLight = Offset(size.width / 2f, outerTopLeft.y - cellH * 1.6f)
+    val boardCenter = Offset(innerTopLeft.x + innerSize.width / 2f, innerTopLeft.y + innerSize.height / 2f)
 
-    drawCircle(
+    drawOval(
         brush = Brush.radialGradient(
             colors = listOf(
                 Color(0x66FFE8B5),
-                Color(0x1AD6AE68),
+                Color(0x22D6AE68),
                 Color.Transparent
             ),
-            center = overheadLight,
-            radius = cellW * 6.6f
+            center = boardCenter,
+            radius = innerSize.width * 0.72f
         ),
-        radius = cellW * 6.6f,
-        center = overheadLight
+        topLeft = Offset(innerTopLeft.x - cellW * 0.62f, innerTopLeft.y + innerSize.height * 0.12f),
+        size = Size(innerSize.width + cellW * 1.24f, innerSize.height * 0.82f)
     )
 
     drawRoundRect(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0x66000000), Color(0xC8000000)),
-            center = Offset(size.width / 2f, outerTopLeft.y + outerSize.height * 0.56f),
+            colors = listOf(Color(0x44000000), Color(0xD6000000)),
+            center = boardCenter,
             radius = cellW * 5.8f
         ),
         topLeft = Offset(outerTopLeft.x + cellW * 0.1f, outerTopLeft.y + cellH * 0.16f),
@@ -338,26 +338,26 @@ private fun DrawScope.drawBoardBackground(offsetX: Float, offsetY: Float, cellW:
     drawRoundRect(
         brush = Brush.radialGradient(
             colors = listOf(
-                Color(0x4CFFF2C6),
-                Color(0x18FFE0A0),
-                Color.Transparent
+                Color(0x5AFFF0C2),
+                Color(0x20FFE0A0),
+                Color(0x1A000000)
             ),
-            center = Offset(innerTopLeft.x + innerSize.width / 2f, innerTopLeft.y + innerSize.height * 0.08f),
-            radius = innerSize.width * 0.72f
+            center = boardCenter,
+            radius = innerSize.width * 0.58f
         ),
         topLeft = innerTopLeft,
         size = innerSize,
         cornerRadius = CornerRadius(cellW * 0.08f, cellW * 0.08f)
     )
     drawRoundRect(
-        brush = Brush.verticalGradient(
+        brush = Brush.radialGradient(
             colors = listOf(
-                Color(0x28FFF0C0),
                 Color.Transparent,
-                Color(0x26000000)
+                Color(0x10000000),
+                Color(0x36000000)
             ),
-            startY = innerTopLeft.y,
-            endY = innerTopLeft.y + innerSize.height
+            center = boardCenter,
+            radius = innerSize.width * 0.64f
         ),
         topLeft = innerTopLeft,
         size = innerSize,

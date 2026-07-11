@@ -1,182 +1,80 @@
 package com.ericlee.chess.ui.theme
 
+import android.graphics.BitmapFactory
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import com.ericlee.chess.R
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
-fun Modifier.stoneChamberTexture(): Modifier = drawBehind {
-    drawRect(
-        brush = Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF030405),
-                Color(0xFF101315),
-                Color(0xFF24292B),
-                Color(0xFF090A0B)
-            )
-        )
-    )
-
-    val blockHeight = (size.height / 8.5f).coerceAtLeast(72f)
-    var blockTop = -blockHeight * 0.35f
-    var row = 0
-    while (blockTop < size.height) {
-        val blockWidth = (size.width / 3.15f).coerceAtLeast(96f)
-        var blockLeft = if (row % 2 == 0) -blockWidth * 0.38f else 0f
-        drawLine(
-            color = Color.Black.copy(alpha = 0.48f),
-            start = Offset(0f, blockTop),
-            end = Offset(size.width, blockTop),
-            strokeWidth = 2.4f
-        )
-        drawLine(
-            color = Color.White.copy(alpha = 0.035f),
-            start = Offset(0f, blockTop + 2f),
-            end = Offset(size.width, blockTop + 2f),
-            strokeWidth = 1.1f
-        )
-        while (blockLeft < size.width) {
-            drawLine(
-                color = Color.Black.copy(alpha = 0.34f),
-                start = Offset(blockLeft, blockTop),
-                end = Offset(blockLeft, blockTop + blockHeight),
-                strokeWidth = 2f
-            )
-            blockLeft += blockWidth
-        }
-        blockTop += blockHeight
-        row++
+fun Modifier.stoneChamberTexture(): Modifier = composed {
+    val resources = LocalContext.current.resources
+    val background = androidx.compose.runtime.remember {
+        BitmapFactory.decodeResource(resources, R.drawable.background).asImageBitmap()
     }
+    drawWithCache {
+        val scale = max(size.width / background.width, size.height / background.height)
+        val dstSize = IntSize(
+            width = (background.width * scale).roundToInt(),
+            height = (background.height * scale).roundToInt()
+        )
+        val dstOffset = IntOffset(
+            x = ((size.width - dstSize.width) / 2f).roundToInt(),
+            y = ((size.height - dstSize.height) / 2f).roundToInt()
+        )
+        val floorLightCenter = Offset(size.width * 0.5f, size.height * 0.56f)
 
-    for (i in 0..34) {
-        val cx = size.width * ((i * 37 % 100) / 100f)
-        val cy = size.height * ((i * 53 % 100) / 100f)
-        val radius = 42f + (i % 5) * 18f
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.035f),
-                    Color(0xFF5E686B).copy(alpha = 0.045f),
-                    Color.Transparent
+        onDrawBehind {
+            drawRect(Color(0xFF060607))
+            drawImage(
+                image = background,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(background.width, background.height),
+                dstOffset = dstOffset,
+                dstSize = dstSize
+            )
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0x62FFE7B0),
+                        Color(0x24D4A25F),
+                        Color.Transparent
+                    ),
+                    center = floorLightCenter,
+                    radius = size.width * 0.62f
                 ),
-                center = Offset(cx, cy),
-                radius = radius
-            ),
-            radius = radius,
-            center = Offset(cx, cy)
-        )
-    }
-
-    for (i in 0..18) {
-        val startX = size.width * ((i * 41 % 100) / 100f)
-        val startY = size.height * (0.08f + (i * 17 % 70) / 100f)
-        val crack = Path().apply {
-            moveTo(startX, startY)
-            var x = startX
-            var y = startY
-            for (step in 1..4) {
-                x += sin((i + step) * 1.7f) * size.width * 0.035f
-                y += size.height * (0.018f + (step % 2) * 0.012f)
-                lineTo(x, y)
-            }
-        }
-        drawPath(
-            path = crack,
-            color = Color.Black.copy(alpha = 0.26f),
-            style = Stroke(width = 1.2f + (i % 3) * 0.45f)
-        )
-        if (i % 2 == 0) {
-            drawPath(
-                path = crack,
-                color = Color.White.copy(alpha = 0.028f),
-                style = Stroke(width = 0.8f)
+                topLeft = Offset(size.width * 0.12f, size.height * 0.34f),
+                size = Size(size.width * 0.76f, size.height * 0.42f)
+            )
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color(0x42000000),
+                        Color(0xD8000000)
+                    ),
+                    center = floorLightCenter,
+                    radius = max(size.width, size.height) * 0.58f
+                )
+            )
+            drawRect(
+                color = Color.Black.copy(alpha = 0.18f)
             )
         }
     }
-
-    val floorTop = size.height * 0.64f
-    drawRect(
-        brush = Brush.verticalGradient(
-            colors = listOf(
-                Color(0x00101010),
-                Color(0xFF1A1D1F),
-                Color(0xFF070809)
-            ),
-            startY = floorTop - size.height * 0.12f,
-            endY = size.height
-        ),
-        topLeft = Offset(0f, floorTop),
-        size = Size(size.width, size.height - floorTop)
-    )
-    for (i in 0..8) {
-        val x = size.width * i / 8f
-        drawLine(
-            color = Color.Black.copy(alpha = 0.30f),
-            start = Offset(size.width / 2f, floorTop),
-            end = Offset(x, size.height),
-            strokeWidth = 1.6f
-        )
-    }
-    for (i in 1..5) {
-        val y = floorTop + (size.height - floorTop) * (i / 5f) * (i / 5f)
-        drawLine(
-            color = Color.Black.copy(alpha = 0.34f),
-            start = Offset(0f, y),
-            end = Offset(size.width, y),
-            strokeWidth = 1.8f
-        )
-    }
-
-    val lightCenter = Offset(size.width * 0.5f, -size.height * 0.08f)
-    val beam = Path().apply {
-        moveTo(size.width * 0.42f, 0f)
-        lineTo(size.width * 0.08f, size.height * 0.72f)
-        lineTo(size.width * 0.92f, size.height * 0.72f)
-        lineTo(size.width * 0.58f, 0f)
-        close()
-    }
-    drawPath(
-        path = beam,
-        brush = Brush.verticalGradient(
-            colors = listOf(
-                Color(0x55FFE5B0),
-                Color(0x22D6B06A),
-                Color.Transparent
-            ),
-            startY = 0f,
-            endY = size.height * 0.74f
-        )
-    )
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                Color(0x77FFE8BB),
-                Color(0x24C79A55),
-                Color.Transparent
-            ),
-            center = lightCenter,
-            radius = size.width * 0.58f
-        ),
-        radius = size.width * 0.58f,
-        center = lightCenter
-    )
-    drawRect(
-        brush = Brush.radialGradient(
-            colors = listOf(
-                Color.Transparent,
-                Color.Black.copy(alpha = 0.70f)
-            ),
-            center = Offset(size.width * 0.5f, size.height * 0.42f),
-            radius = maxOf(size.width, size.height) * 0.72f
-        ),
-        topLeft = Offset.Zero,
-        size = size
-    )
 }
 
 fun Modifier.battlefieldTexture(): Modifier = drawBehind {

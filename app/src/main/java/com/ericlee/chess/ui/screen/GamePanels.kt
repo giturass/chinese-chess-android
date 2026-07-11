@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Card
@@ -20,11 +23,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameState
@@ -248,8 +257,9 @@ private fun GameInfoPanel(
 ) {
     val accent = accentSide?.accentColor() ?: state.accentColor()
     val detailColor = if (accentSide == Side.BLACK) Color(0xFF111111) else Color(0xFF352112)
-    val latestMove = state.lastMove?.toChineseNotation() ?: "尚未行棋"
+    val notation = state.fullMoveNotation()
     val headline = state.headline()
+    var notationExpanded by rememberSaveable { mutableStateOf(false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -276,9 +286,11 @@ private fun GameInfoPanel(
                         color = accent
                     )
                     Text(
-                        text = if (state.status == GameStatus.PLAYING) "最近：$latestMove" else statusMessage,
+                        text = if (state.status == GameStatus.PLAYING) "棋谱：${notation.collapsed}" else statusMessage,
                         fontSize = 13.sp,
-                        color = detailColor.copy(alpha = 0.82f)
+                        color = detailColor.copy(alpha = 0.82f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 if (isAiThinking) {
@@ -288,6 +300,45 @@ private fun GameInfoPanel(
                         color = accent
                     )
                 }
+            }
+
+            if (state.moveHistory.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "完整棋谱",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = detailColor.copy(alpha = 0.78f)
+                    )
+                    TextButton(
+                        onClick = { notationExpanded = !notationExpanded },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            text = if (notationExpanded) "折叠" else "展开",
+                            fontSize = 12.sp,
+                            color = accent
+                        )
+                    }
+                }
+                Text(
+                    text = notation.expanded,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = if (notationExpanded) 92.dp else 20.dp)
+                        .then(
+                            if (notationExpanded) Modifier.verticalScroll(rememberScrollState())
+                            else Modifier
+                        ),
+                    fontSize = 12.sp,
+                    color = detailColor.copy(alpha = 0.78f),
+                    maxLines = if (notationExpanded) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             actions()
@@ -368,3 +419,28 @@ private fun GameState.accentColor(): Color = when {
     currentSide == Side.RED -> Color(0xFFB32318)
     else -> Color(0xFF241B14)
 }
+
+private fun GameState.fullMoveNotation(): MoveNotationText {
+    if (moveHistory.isEmpty()) return MoveNotationText("尚未行棋", "尚未行棋")
+    val expanded = moveHistory
+        .chunked(2)
+        .mapIndexed { index, pair ->
+            val redMove = pair.getOrNull(0)?.toChineseNotation().orEmpty()
+            val blackMove = pair.getOrNull(1)?.toChineseNotation().orEmpty()
+            if (blackMove.isBlank()) {
+                "${index + 1}. $redMove"
+            } else {
+                "${index + 1}. $redMove  $blackMove"
+            }
+        }
+        .joinToString("\n")
+    return MoveNotationText(
+        collapsed = expanded.replace('\n', ' '),
+        expanded = expanded
+    )
+}
+
+private data class MoveNotationText(
+    val collapsed: String,
+    val expanded: String
+)

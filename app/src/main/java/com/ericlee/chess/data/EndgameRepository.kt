@@ -129,7 +129,7 @@ object EndgameRepository {
         description = "双炮一上一下，配合车取胜",
         pieces = listOf(
             PuzzlePiece("red", "king", 9, 4),
-            PuzzlePiece("red", "cannon", 0, 4),
+            PuzzlePiece("red", "cannon", 2, 4),
             PuzzlePiece("red", "cannon", 5, 4),
             PuzzlePiece("red", "rook", 7, 0),
             PuzzlePiece("black", "king", 0, 4),

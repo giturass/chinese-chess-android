@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -63,8 +64,9 @@ class MainActivity : ComponentActivity() {
 fun ChineseChessApp() {
     val navController = rememberNavController()
     val gameViewModel: GameViewModel = viewModel()
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val audio = remember { GameAudio() }
+    val audio = remember(context) { GameAudio(context) }
     val state by gameViewModel.gameState.collectAsState()
     var heardMoveCount by remember { mutableStateOf(state.moveHistory.size) }
 
