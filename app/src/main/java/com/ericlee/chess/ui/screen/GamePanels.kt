@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -322,9 +321,11 @@ private fun GameInfoPanel(
                         }
                     }
                     if (isAiThinking) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.4.dp,
+                        Text(
+                            text = "AI思考中",
+                            modifier = Modifier.padding(start = 10.dp),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
                             color = accent
                         )
                     }
