@@ -1,6 +1,7 @@
 package com.ericlee.chess.ui.screen
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +35,8 @@ fun EndgameScreen(
     viewModel: GameViewModel,
     onBack: () -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     var selectedPuzzle by remember { mutableStateOf<EndgamePuzzle?>(null) }
     var showHint by remember { mutableStateOf(false) }
     val puzzles = remember { EndgameRepository.getPuzzles() }

@@ -1,5 +1,6 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -67,6 +68,8 @@ fun AiGameScreen(
     viewModel: GameViewModel,
     onBack: () -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     var difficulty by remember { mutableIntStateOf(3) }
     var gameStarted by remember { mutableStateOf(false) }
     var selectedHumanSide by remember { mutableStateOf<Side?>(null) }

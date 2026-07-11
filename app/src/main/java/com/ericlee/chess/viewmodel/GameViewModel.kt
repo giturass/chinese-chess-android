@@ -63,6 +63,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var lastOnlineServerUrl = ""
     private var lastOnlineRoomId = ""
     private var lastOnlinePlayerId = ""
+    private var aiJob: Job? = null
 
     fun startGame(
         mode: GameMode,
@@ -71,6 +72,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         humanSide: Side = Side.RED
     ) {
         gameVersion++
+        cancelAiSearch()
         closeEngineAsync()
         _gameState.value = GameState(
             mode = mode,
@@ -100,6 +102,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadEndgame(puzzle: EndgamePuzzle) {
         gameVersion++
+        cancelAiSearch()
         closeEngineAsync()
         val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
         engine = PikafishEngine(appContext, Side.BLACK)
@@ -181,6 +184,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun triggerAiMove() {
+        val activeEngine = engine ?: run {
+            _statusMessage.value = "AI 引擎暂不可用"
+            return
+        }
         _isAiThinking.value = true
         val state = _gameState.value
         val boardSnapshot = state.board.copy()
@@ -189,9 +196,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val aiSide = state.humanSide.opposite()
         val positionCounts = state.positionOccurrences()
 
-        viewModelScope.launch {
+        aiJob?.cancel()
+        aiJob = viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                runCatching { engine?.findBestMove(boardSnapshot, depth, positionCounts) }.getOrNull()
+                runCatching { activeEngine.findBestMove(boardSnapshot, depth, positionCounts) }.getOrNull()
             }
 
             if (version != gameVersion) return@launch
@@ -209,15 +217,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun triggerEndgameDefense() {
+        val activeEngine = engine ?: run {
+            _statusMessage.value = "AI 引擎暂不可用"
+            return
+        }
         _isAiThinking.value = true
         val state = _gameState.value
         val boardSnapshot = state.board.copy()
         val version = gameVersion
         val positionCounts = state.positionOccurrences()
 
-        viewModelScope.launch {
+        aiJob?.cancel()
+        aiJob = viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                runCatching { engine?.findBestMove(boardSnapshot, 2, positionCounts) }.getOrNull()
+                runCatching { activeEngine.findBestMove(boardSnapshot, 2, positionCounts) }.getOrNull()
             }
 
             if (version != gameVersion) return@launch
@@ -261,6 +274,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             return null
         }
         gameVersion++
+        cancelAiSearch()
         closeEngineAsync()
         val restored = runCatching { saved.toGameState() }.getOrElse {
             saveRepository.clear()
@@ -297,10 +311,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun discardSavedGame() {
         saveRepository.clear()
         _savedGamePrompt.value = null
+        _activeGameStarted.value = false
     }
 
     fun saveActiveGame() {
         persistActiveGame()
+    }
+
+    fun leaveActiveGame() {
+        persistActiveGame()
+        cancelAiSearch()
+        closeEngineAsync()
+        _activeGameStarted.value = false
+        _activeEndgamePuzzleId.value = null
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _savedGamePrompt.value = saveRepository.loadSummary()
     }
 
     private fun persistActiveGame() {
@@ -326,6 +352,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { oldEngine.close() }
         }
+    }
+
+    private fun cancelAiSearch() {
+        aiJob?.cancel()
+        aiJob = null
+        _isAiThinking.value = false
     }
 
     private fun longCheckLoser(state: GameState): Side? {
@@ -448,6 +480,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
         onlinePollJob?.cancel()
         gameVersion++
+        cancelAiSearch()
         val version = gameVersion
         onlineFlippedOverride = null
         onlineMoveInFlight = false
@@ -509,6 +542,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun disconnectOnline() {
         gameVersion++
+        cancelAiSearch()
         val client = onlineClient
         val session = _onlineSession.value
         onlinePollJob?.cancel()
@@ -702,6 +736,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         persistActiveGame()
+        aiJob?.cancel()
         runCatching { engine?.close() }
         onlinePollJob?.cancel()
         super.onCleared()

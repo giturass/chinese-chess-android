@@ -1,6 +1,7 @@
 package com.ericlee.chess.ui.screen
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,6 +90,14 @@ fun OnlineGameScreen(
     }
     var confirmExit by remember { mutableStateOf(false) }
     val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
+
+    BackHandler {
+        if (session.connected) {
+            confirmExit = true
+        } else {
+            onBack()
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.disconnectOnline() }

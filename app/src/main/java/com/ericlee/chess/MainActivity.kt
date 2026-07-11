@@ -157,7 +157,10 @@ fun ChineseChessApp() {
         composable("ai") {
             AiGameScreen(
                 viewModel = gameViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    gameViewModel.leaveActiveGame()
+                    navController.popBackStack()
+                }
             )
         }
         composable("two_player") {
@@ -170,7 +173,10 @@ fun ChineseChessApp() {
         composable("local") {
             LocalGameScreen(
                 viewModel = gameViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    gameViewModel.leaveActiveGame()
+                    navController.popBackStack()
+                }
             )
         }
         composable("online") {
@@ -182,7 +188,10 @@ fun ChineseChessApp() {
         composable("endgame") {
             EndgameScreen(
                 viewModel = gameViewModel,
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    gameViewModel.leaveActiveGame()
+                    navController.popBackStack()
+                }
             )
         }
     }

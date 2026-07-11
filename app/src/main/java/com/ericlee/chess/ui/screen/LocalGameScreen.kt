@@ -1,5 +1,6 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,8 @@ fun LocalGameScreen(
     viewModel: GameViewModel,
     onBack: () -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     var gameStarted by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<PendingLocalAction?>(null) }
     var confirmAction by remember { mutableStateOf<BoardConfirmAction?>(null) }
