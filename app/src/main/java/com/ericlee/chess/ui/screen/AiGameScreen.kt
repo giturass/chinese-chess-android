@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -76,6 +77,15 @@ fun AiGameScreen(
     val legalMoves by viewModel.legalMoves.collectAsState()
     val isAiThinking by viewModel.isAiThinking.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+    val activeGameStarted by viewModel.activeGameStarted.collectAsState()
+
+    LaunchedEffect(activeGameStarted, state.mode) {
+        if (activeGameStarted && state.mode == GameMode.AI) {
+            difficulty = state.aiDifficulty
+            selectedHumanSide = state.humanSide
+            gameStarted = true
+        }
+    }
 
     confirmAction?.let { action ->
         AlertDialog(

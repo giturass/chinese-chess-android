@@ -276,16 +276,18 @@ private fun OnlineGameContent(
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val statusPlaceable = measurables.first { it.layoutId == "status" }.measure(loose)
         val panelPlaceable = measurables.first { it.layoutId == "panel" }.measure(loose)
-        val boardMaxHeight = (constraints.maxHeight - statusPlaceable.height - panelPlaceable.height - gap * 2)
+        val topReserveHeight = panelPlaceable.height
+        val boardMaxHeight = (constraints.maxHeight - topReserveHeight - panelPlaceable.height - gap * 2)
             .coerceAtLeast(0)
         val boardPlaceable = measurables.first { it.layoutId == "board" }
             .measure(loose.copy(maxHeight = boardMaxHeight))
 
-        val boardY = statusPlaceable.height + gap
+        val boardY = topReserveHeight + gap
         val panelY = boardY + boardPlaceable.height + gap
+        val statusY = ((topReserveHeight - statusPlaceable.height) / 2).coerceAtLeast(0)
 
         layout(constraints.maxWidth, constraints.maxHeight) {
-            statusPlaceable.place((constraints.maxWidth - statusPlaceable.width) / 2, 0)
+            statusPlaceable.place((constraints.maxWidth - statusPlaceable.width) / 2, statusY)
             boardPlaceable.place((constraints.maxWidth - boardPlaceable.width) / 2, boardY)
             panelPlaceable.place((constraints.maxWidth - panelPlaceable.width) / 2, panelY)
         }

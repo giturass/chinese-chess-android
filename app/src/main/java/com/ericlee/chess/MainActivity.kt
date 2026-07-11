@@ -13,6 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
@@ -25,6 +28,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ericlee.chess.audio.GameAudio
+import com.ericlee.chess.data.SavedGameSummary
+import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.ui.screen.AiGameScreen
 import com.ericlee.chess.ui.screen.EndgameScreen
 import com.ericlee.chess.ui.screen.HomeScreen
@@ -76,13 +81,17 @@ fun ChineseChessApp() {
     }
     val audio = remember(context) { GameAudio(context, initialMuted = audioMuted) }
     val state by gameViewModel.gameState.collectAsState()
+    val savedGamePrompt by gameViewModel.savedGamePrompt.collectAsState()
     var heardMoveCount by remember { mutableStateOf(state.moveHistory.size) }
 
     DisposableEffect(lifecycleOwner, audio) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> audio.resumeBackground()
-                Lifecycle.Event.ON_STOP -> audio.pauseBackground()
+                Lifecycle.Event.ON_STOP -> {
+                    gameViewModel.saveActiveGame()
+                    audio.pauseBackground()
+                }
                 else -> Unit
             }
         }
@@ -106,6 +115,33 @@ fun ChineseChessApp() {
             state.lastMove?.let { audio.playMove(capture = it.captured != null) }
         }
         heardMoveCount = state.moveHistory.size
+    }
+
+    savedGamePrompt?.let { summary ->
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val restoredMode = gameViewModel.continueSavedGame()
+                        restoredMode?.route()?.let { route ->
+                            navController.navigate(route) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                ) {
+                    Text("继续")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { gameViewModel.discardSavedGame() }) {
+                    Text("舍弃")
+                }
+            },
+            title = { Text("发现未完成棋局") },
+            text = { Text(summary.promptText()) }
+        )
     }
 
     NavHost(navController = navController, startDestination = "home") {
@@ -150,4 +186,21 @@ fun ChineseChessApp() {
             )
         }
     }
+}
+
+private fun GameMode.route(): String? = when (this) {
+    GameMode.AI -> "ai"
+    GameMode.LOCAL -> "local"
+    GameMode.ENDGAME -> "endgame"
+    GameMode.ONLINE -> null
+}
+
+private fun SavedGameSummary.promptText(): String {
+    val modeName = when (mode) {
+        GameMode.AI -> "人机对战"
+        GameMode.LOCAL -> "本地双人"
+        GameMode.ONLINE -> "联机对战"
+        GameMode.ENDGAME -> "残局挑战"
+    }
+    return "$modeName，已走 $moveCount 步。"
 }

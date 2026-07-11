@@ -1,8 +1,11 @@
 package com.ericlee.chess.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.ericlee.chess.engine.ChessEngine
+import com.ericlee.chess.data.GameSaveRepository
+import com.ericlee.chess.data.SavedGameSummary
+import com.ericlee.chess.engine.PikafishEngine
 import com.ericlee.chess.model.*
 import com.ericlee.chess.network.OnlineGameClient
 import com.ericlee.chess.network.OnlineMoveDto
@@ -18,7 +21,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class GameViewModel : ViewModel() {
+class GameViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val appContext = application.applicationContext
+    private val saveRepository = GameSaveRepository(appContext)
 
     private val _gameState = MutableStateFlow(GameState())
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
@@ -38,7 +44,16 @@ class GameViewModel : ViewModel() {
     private val _onlineSession = MutableStateFlow(OnlineSessionState())
     val onlineSession: StateFlow<OnlineSessionState> = _onlineSession.asStateFlow()
 
-    private var engine: ChessEngine? = null
+    private val _savedGamePrompt = MutableStateFlow<SavedGameSummary?>(saveRepository.loadSummary())
+    val savedGamePrompt: StateFlow<SavedGameSummary?> = _savedGamePrompt.asStateFlow()
+
+    private val _activeGameStarted = MutableStateFlow(false)
+    val activeGameStarted: StateFlow<Boolean> = _activeGameStarted.asStateFlow()
+
+    private val _activeEndgamePuzzleId = MutableStateFlow<Int?>(null)
+    val activeEndgamePuzzleId: StateFlow<Int?> = _activeEndgamePuzzleId.asStateFlow()
+
+    private var engine: PikafishEngine? = null
     private var gameVersion = 0
     private var onlineClient: OnlineGameClient? = null
     private var onlinePollJob: Job? = null
@@ -56,12 +71,16 @@ class GameViewModel : ViewModel() {
         humanSide: Side = Side.RED
     ) {
         gameVersion++
+        engine?.close()
+        engine = null
         _gameState.value = GameState(
             mode = mode,
             aiDifficulty = difficulty,
             isFlipped = flipped,
             humanSide = humanSide
         )
+        _activeGameStarted.value = true
+        _activeEndgamePuzzleId.value = null
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
@@ -72,26 +91,32 @@ class GameViewModel : ViewModel() {
             GameMode.ENDGAME -> "残局挑战"
         }
         if (mode == GameMode.AI) {
-            engine = ChessEngine(humanSide.opposite())
+            engine = PikafishEngine(appContext, humanSide.opposite())
             if (humanSide == Side.BLACK) {
                 triggerAiMove()
             }
         }
+        persistActiveGame()
     }
 
     fun loadEndgame(puzzle: EndgamePuzzle) {
         gameVersion++
+        engine?.close()
+        engine = null
         val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
-        engine = ChessEngine(Side.BLACK)
+        engine = PikafishEngine(appContext, Side.BLACK)
         _gameState.value = GameState(
             board = board,
             currentSide = Side.RED,
             mode = GameMode.ENDGAME,
             isFlipped = false
         )
+        _activeGameStarted.value = true
+        _activeEndgamePuzzleId.value = puzzle.id
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         _statusMessage.value = "红方先手，破解 ${puzzle.name}"
+        persistActiveGame()
     }
 
     fun onPositionClick(row: Int, col: Int) {
@@ -127,19 +152,13 @@ class GameViewModel : ViewModel() {
 
     private fun executeMove(move: Move) {
         val state = _gameState.value
-        if (state.isLongCheckMove(move)) {
-            _statusMessage.value = "禁止长将，请改走其他着法"
-            _selectedPiece.value = null
-            _legalMoves.value = emptyList()
-            return
-        }
-
         val newState = state.makeMove(move)
         _gameState.value = newState
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
 
         updateStatusMessage(newState)
+        persistActiveGame()
 
         if (newState.mode == GameMode.ONLINE) {
             sendOnlineMove(move)
@@ -173,7 +192,7 @@ class GameViewModel : ViewModel() {
 
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                engine?.findBestMove(boardSnapshot, depth, positionCounts)
+                runCatching { engine?.findBestMove(boardSnapshot, depth, positionCounts) }.getOrNull()
             }
 
             if (version != gameVersion) return@launch
@@ -182,6 +201,9 @@ class GameViewModel : ViewModel() {
                 val newState = _gameState.value.makeMove(move)
                 _gameState.value = newState
                 updateStatusMessage(newState)
+                persistActiveGame()
+            } else if (_gameState.value.status == GameStatus.PLAYING) {
+                _statusMessage.value = "AI 引擎暂不可用"
             }
             _isAiThinking.value = false
         }
@@ -196,7 +218,7 @@ class GameViewModel : ViewModel() {
 
         viewModelScope.launch {
             val move = withContext(Dispatchers.Default) {
-                engine?.findBestMove(boardSnapshot, 2, positionCounts)
+                runCatching { engine?.findBestMove(boardSnapshot, 2, positionCounts) }.getOrNull()
             }
 
             if (version != gameVersion) return@launch
@@ -205,6 +227,9 @@ class GameViewModel : ViewModel() {
                 val newState = _gameState.value.makeMove(move)
                 _gameState.value = newState
                 updateStatusMessage(newState)
+                persistActiveGame()
+            } else if (_gameState.value.status == GameStatus.PLAYING) {
+                _statusMessage.value = "AI 引擎暂不可用"
             }
             _isAiThinking.value = false
         }
@@ -212,10 +237,14 @@ class GameViewModel : ViewModel() {
 
     private fun updateStatusMessage(state: GameState) {
         _statusMessage.value = when (state.status) {
-            GameStatus.RED_WIN -> "红方获胜！"
-            GameStatus.BLACK_WIN -> "黑方获胜！"
+            GameStatus.RED_WIN -> {
+                if (longCheckLoser(state) == Side.BLACK) "黑方长将三次判负，红方获胜！" else "红方获胜！"
+            }
+            GameStatus.BLACK_WIN -> {
+                if (longCheckLoser(state) == Side.RED) "红方长将三次判负，黑方获胜！" else "黑方获胜！"
+            }
             GameStatus.STALEMATE -> "和棋（困毙）"
-            GameStatus.DRAW -> "和棋"
+            GameStatus.DRAW -> if (isRepeatedQuietPosition(state)) "三次重复局面，和棋" else "和棋"
             GameStatus.PLAYING -> {
                 val sideName = if (state.currentSide == Side.RED) "红方" else "黑方"
                 if (state.isInCheck) {
@@ -225,6 +254,81 @@ class GameViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    fun continueSavedGame(): GameMode? {
+        val saved = saveRepository.load() ?: run {
+            _savedGamePrompt.value = null
+            return null
+        }
+        gameVersion++
+        engine?.close()
+        engine = null
+        val restored = runCatching { saved.toGameState() }.getOrElse {
+            saveRepository.clear()
+            _savedGamePrompt.value = null
+            return null
+        }
+        _gameState.value = restored
+        _activeGameStarted.value = true
+        _activeEndgamePuzzleId.value = saved.endgamePuzzleId
+        _savedGamePrompt.value = null
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _isAiThinking.value = false
+        if (restored.mode == GameMode.AI) {
+            engine = PikafishEngine(appContext, restored.humanSide.opposite())
+        } else if (restored.mode == GameMode.ENDGAME) {
+            engine = PikafishEngine(appContext, Side.BLACK)
+        }
+        updateStatusMessage(restored)
+        if (restored.status == GameStatus.PLAYING &&
+            restored.mode == GameMode.AI &&
+            restored.currentSide != restored.humanSide
+        ) {
+            triggerAiMove()
+        } else if (restored.status == GameStatus.PLAYING &&
+            restored.mode == GameMode.ENDGAME &&
+            restored.currentSide == Side.BLACK
+        ) {
+            triggerEndgameDefense()
+        }
+        return restored.mode
+    }
+
+    fun discardSavedGame() {
+        saveRepository.clear()
+        _savedGamePrompt.value = null
+    }
+
+    fun saveActiveGame() {
+        persistActiveGame()
+    }
+
+    private fun persistActiveGame() {
+        val state = _gameState.value
+        if (!_activeGameStarted.value || state.mode == GameMode.ONLINE) return
+        if (state.status == GameStatus.PLAYING) {
+            saveRepository.save(state, _activeEndgamePuzzleId.value)
+        } else {
+            saveRepository.clear()
+            _savedGamePrompt.value = null
+        }
+    }
+
+    private fun longCheckLoser(state: GameState): Side? {
+        val lastMove = state.lastMove ?: return null
+        val movingSide = lastMove.side ?: state.currentSide.opposite()
+        val targetSide = movingSide.opposite()
+        if (!state.board.isInCheck(targetSide)) return null
+        val count = state.positionOccurrences()[state.board.positionKey(targetSide)] ?: 0
+        return if (count >= 3) movingSide else null
+    }
+
+    private fun isRepeatedQuietPosition(state: GameState): Boolean {
+        if (state.board.isInCheck(state.currentSide)) return false
+        val count = state.positionOccurrences()[state.board.positionKey(state.currentSide)] ?: 0
+        return count >= 3
     }
 
     fun undoMove(side: Side? = null) {
@@ -249,6 +353,7 @@ class GameViewModel : ViewModel() {
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         updateStatusMessage(_gameState.value)
+        persistActiveGame()
     }
 
     fun toggleBoardFlipped() {
@@ -259,6 +364,7 @@ class GameViewModel : ViewModel() {
         _gameState.value = state.copy(isFlipped = !state.isFlipped)
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
+        persistActiveGame()
     }
 
     fun resign(side: Side? = null) {
@@ -274,6 +380,7 @@ class GameViewModel : ViewModel() {
         val winner = if (resigningSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
         _gameState.value = state.copy(status = winner)
         updateStatusMessage(_gameState.value)
+        persistActiveGame()
     }
 
     fun agreeDraw(requester: Side? = null) {
@@ -294,6 +401,7 @@ class GameViewModel : ViewModel() {
         } else {
             "双方同意和棋"
         }
+        persistActiveGame()
     }
 
     fun startOnlineGame(
@@ -334,7 +442,11 @@ class GameViewModel : ViewModel() {
         onlineRevision = 0L
         val client = OnlineGameClient(cleanedServerUrl)
         onlineClient = client
+        engine?.close()
+        engine = null
         _gameState.value = GameState(mode = GameMode.ONLINE)
+        _activeGameStarted.value = true
+        _activeEndgamePuzzleId.value = null
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
         _isAiThinking.value = false
@@ -576,6 +688,8 @@ class GameViewModel : ViewModel() {
     }
 
     override fun onCleared() {
+        persistActiveGame()
+        engine?.close()
         onlinePollJob?.cancel()
         super.onCleared()
     }

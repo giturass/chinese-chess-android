@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.data.EndgameRepository
 import com.ericlee.chess.model.EndgamePuzzle
+import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
@@ -59,6 +60,14 @@ fun EndgameScreen(
     val selectedPiece by viewModel.selectedPiece.collectAsState()
     val legalMoves by viewModel.legalMoves.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+    val activeGameStarted by viewModel.activeGameStarted.collectAsState()
+    val activeEndgamePuzzleId by viewModel.activeEndgamePuzzleId.collectAsState()
+
+    LaunchedEffect(activeGameStarted, activeEndgamePuzzleId, state.mode) {
+        if (activeGameStarted && state.mode == GameMode.ENDGAME) {
+            selectedPuzzle = puzzles.firstOrNull { it.id == activeEndgamePuzzleId }
+        }
+    }
 
     val puzzle = selectedPuzzle
     if (puzzle != null) {

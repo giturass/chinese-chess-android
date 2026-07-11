@@ -25,6 +25,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,13 @@ fun LocalGameScreen(
     val selectedPiece by viewModel.selectedPiece.collectAsState()
     val legalMoves by viewModel.legalMoves.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
+    val activeGameStarted by viewModel.activeGameStarted.collectAsState()
+
+    LaunchedEffect(activeGameStarted, state.mode) {
+        if (activeGameStarted && state.mode == GameMode.LOCAL) {
+            gameStarted = true
+        }
+    }
 
     val topSide = if (state.isFlipped) Side.RED else Side.BLACK
     val bottomSide = topSide.opposite()

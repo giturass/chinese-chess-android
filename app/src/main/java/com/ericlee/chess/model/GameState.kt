@@ -29,8 +29,16 @@ data class GameState(
             pieceType = movingPiece?.type ?: move.pieceType
         )
         val nextSide = currentSide.opposite()
+        val nextPositionKey = board.positionKey(nextSide)
+        val nextPositionCount = (positionOccurrences()[nextPositionKey] ?: 0) + 1
+        val repeatedPosition = nextPositionCount >= 3
+        val nextSideInCheck = board.isInCheck(nextSide)
 
         val newStatus = when {
+            repeatedPosition && nextSideInCheck -> {
+                if (currentSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
+            }
+            repeatedPosition -> GameStatus.DRAW
             board.findKing(nextSide) == null -> {
                 if (nextSide == Side.RED) GameStatus.BLACK_WIN else GameStatus.RED_WIN
             }
@@ -68,15 +76,11 @@ data class GameState(
     val lastMoveSide: Side? get() = lastMove?.side ?: if (moveHistory.isNotEmpty()) currentSide.opposite() else null
 
     fun legalMovesForPiece(piece: Piece): List<Move> {
-        val positionCounts = positionOccurrences()
         return board.getLegalMovesForPiece(piece)
-            .filterNot { wouldCauseLongCheck(it, piece.side, positionCounts) }
     }
 
     fun allLegalMoves(side: Side): List<Move> {
-        val positionCounts = positionOccurrences()
         return board.getAllLegalMoves(side)
-            .filterNot { wouldCauseLongCheck(it, side, positionCounts) }
     }
 
     fun isLongCheckMove(move: Move): Boolean =
