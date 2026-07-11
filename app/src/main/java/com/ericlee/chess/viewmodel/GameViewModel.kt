@@ -71,8 +71,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         humanSide: Side = Side.RED
     ) {
         gameVersion++
-        engine?.close()
-        engine = null
+        closeEngineAsync()
         _gameState.value = GameState(
             mode = mode,
             aiDifficulty = difficulty,
@@ -101,8 +100,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadEndgame(puzzle: EndgamePuzzle) {
         gameVersion++
-        engine?.close()
-        engine = null
+        closeEngineAsync()
         val board = Board(puzzle.pieces.map { it.toPiece() }.toMutableList())
         engine = PikafishEngine(appContext, Side.BLACK)
         _gameState.value = GameState(
@@ -115,6 +113,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _activeEndgamePuzzleId.value = puzzle.id
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
+        _isAiThinking.value = false
         _statusMessage.value = "红方先手，破解 ${puzzle.name}"
         persistActiveGame()
     }
@@ -262,8 +261,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             return null
         }
         gameVersion++
-        engine?.close()
-        engine = null
+        closeEngineAsync()
         val restored = runCatching { saved.toGameState() }.getOrElse {
             saveRepository.clear()
             _savedGamePrompt.value = null
@@ -307,12 +305,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun persistActiveGame() {
         val state = _gameState.value
-        if (!_activeGameStarted.value || state.mode == GameMode.ONLINE) return
+        if (!_activeGameStarted.value) return
+        if (state.mode == GameMode.ONLINE || state.moveHistory.isEmpty()) {
+            saveRepository.clear()
+            _savedGamePrompt.value = null
+            return
+        }
         if (state.status == GameStatus.PLAYING) {
             saveRepository.save(state, _activeEndgamePuzzleId.value)
+            _savedGamePrompt.value = null
         } else {
             saveRepository.clear()
             _savedGamePrompt.value = null
+        }
+    }
+
+    private fun closeEngineAsync() {
+        val oldEngine = engine ?: return
+        engine = null
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { oldEngine.close() }
         }
     }
 
@@ -442,8 +454,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         onlineRevision = 0L
         val client = OnlineGameClient(cleanedServerUrl)
         onlineClient = client
-        engine?.close()
-        engine = null
+        closeEngineAsync()
+        saveRepository.clear()
+        _savedGamePrompt.value = null
         _gameState.value = GameState(mode = GameMode.ONLINE)
         _activeGameStarted.value = true
         _activeEndgamePuzzleId.value = null
@@ -689,7 +702,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         persistActiveGame()
-        engine?.close()
+        runCatching { engine?.close() }
         onlinePollJob?.cancel()
         super.onCleared()
     }

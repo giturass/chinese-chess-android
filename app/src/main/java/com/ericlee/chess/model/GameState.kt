@@ -21,7 +21,11 @@ data class GameState(
     val humanSide: Side = Side.RED
 ) {
     fun makeMove(move: Move): GameState {
-        val movingPiece = board.getPiece(move.fromRow, move.fromCol)
+        val movingPiece = board.getPiece(move.fromRow, move.fromCol) ?: return this
+        if (movingPiece.side != currentSide) return this
+        val targetPiece = board.getPiece(move.toRow, move.toCol)
+        if (targetPiece?.side == currentSide) return this
+
         val captured = board.makeMove(move)
         val actualMove = move.copy(
             captured = captured,

@@ -16,10 +16,12 @@ class GameSaveRepository(context: Context) {
     private val gson = Gson()
 
     fun save(state: GameState, endgamePuzzleId: Int?) {
-        val data = SavedGameData.from(state, endgamePuzzleId)
-        prefs.edit()
-            .putString(KEY_SAVED_GAME, gson.toJson(data))
-            .apply()
+        runCatching {
+            val data = SavedGameData.from(state, endgamePuzzleId)
+            prefs.edit()
+                .putString(KEY_SAVED_GAME, gson.toJson(data))
+                .apply()
+        }
     }
 
     fun load(): SavedGameData? =
@@ -27,7 +29,7 @@ class GameSaveRepository(context: Context) {
             ?.let { json -> runCatching { gson.fromJson(json, SavedGameData::class.java) }.getOrNull() }
 
     fun loadSummary(): SavedGameSummary? =
-        load()?.takeIf { it.status == GameStatus.PLAYING }?.let { data ->
+        load()?.takeIf { it.status == GameStatus.PLAYING && it.moveHistory.isNotEmpty() }?.let { data ->
             SavedGameSummary(
                 mode = data.mode,
                 moveCount = data.moveHistory.size,
@@ -67,18 +69,43 @@ data class SavedGameData(
     val endgamePuzzleId: Int?,
     val savedAt: Long
 ) {
-    fun toGameState(): GameState = GameState(
-        board = Board(board.map { it.toPiece() }.toMutableList()),
-        currentSide = currentSide,
-        initialBoard = Board(initialBoard.map { it.toPiece() }.toMutableList()),
-        initialSide = initialSide,
-        mode = mode,
-        status = status,
-        moveHistory = moveHistory.map { it.toMove() }.toMutableList(),
-        aiDifficulty = aiDifficulty,
-        isFlipped = isFlipped,
-        humanSide = humanSide
-    )
+    fun toGameState(): GameState {
+        val replayInitialBoard = Board(initialBoard.map { it.toPiece() }.toMutableList())
+        val replayBoard = replayInitialBoard.copy()
+        val restoredMoves = mutableListOf<Move>()
+        var sideToMove = initialSide
+
+        for (savedMove in moveHistory) {
+            val move = savedMove.toMove()
+            val movingPiece = replayBoard.getPiece(move.fromRow, move.fromCol)
+                ?: error("Invalid saved move")
+            if (movingPiece.side != sideToMove) {
+                error("Invalid saved turn")
+            }
+            val captured = replayBoard.makeMove(move)
+            restoredMoves.add(
+                move.copy(
+                    captured = captured,
+                    side = sideToMove,
+                    pieceType = movingPiece.type
+                )
+            )
+            sideToMove = sideToMove.opposite()
+        }
+
+        return GameState(
+            board = replayBoard,
+            currentSide = sideToMove,
+            initialBoard = replayInitialBoard,
+            initialSide = initialSide,
+            mode = mode,
+            status = status,
+            moveHistory = restoredMoves,
+            aiDifficulty = aiDifficulty,
+            isFlipped = isFlipped,
+            humanSide = humanSide
+        )
+    }
 
     companion object {
         fun from(state: GameState, endgamePuzzleId: Int?): SavedGameData = SavedGameData(

@@ -85,21 +85,11 @@ fun EndgameScreen(
             onUndo = { viewModel.undoMove() },
             onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
             onShowHint = { showHint = true },
-            isCompleted = puzzle.id in completedIds,
             onSolved = { solvedId ->
                 if (solvedId !in completedIds) {
                     val updated = completedIds + solvedId
                     completedIds = updated
                     progressPrefs.saveCompletedPuzzleIds(updated)
-                }
-            },
-            onNext = {
-                val currentIndex = puzzles.indexOfFirst { it.id == puzzle.id }
-                val nextPuzzle = puzzles.getOrNull(currentIndex + 1)
-                if (nextPuzzle != null) {
-                    showHint = false
-                    selectedPuzzle = nextPuzzle
-                    viewModel.loadEndgame(nextPuzzle)
                 }
             }
         )
@@ -206,9 +196,7 @@ private fun GameContent(
     onUndo: () -> Unit,
     onPositionClick: (Int, Int) -> Unit,
     onShowHint: () -> Unit,
-    isCompleted: Boolean,
-    onSolved: (Int) -> Unit,
-    onNext: () -> Unit
+    onSolved: (Int) -> Unit
 ) {
     val topSide = if (state.isFlipped) Side.RED else Side.BLACK
     val bottomSide = topSide.opposite()
@@ -289,49 +277,6 @@ private fun GameContent(
                     .padding(8.dp)
             )
 
-            if (state.status != GameStatus.PLAYING) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xEAF7E5C7)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = if (state.status == GameStatus.RED_WIN || isCompleted) "通关完成" else statusMessage,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (state.status == GameStatus.RED_WIN || isCompleted) Color(0xFFB32318) else Color(0xFF241B14)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = onReset,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("重来")
-                            }
-                            Button(
-                                onClick = onNext,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("下一关")
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
