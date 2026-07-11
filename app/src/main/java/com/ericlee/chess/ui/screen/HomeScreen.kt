@@ -235,6 +235,7 @@ private fun SettingsMenuButton(
     FilledTonalButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = Color(0xFF4A2C18),
             contentColor = Color(0xFFFFE4A6)

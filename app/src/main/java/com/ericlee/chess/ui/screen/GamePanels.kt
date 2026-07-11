@@ -1,13 +1,16 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,8 +25,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -263,6 +266,11 @@ private fun GameInfoPanel(
     var notationExpanded by rememberSaveable { mutableStateOf(false) }
     val hasMoves = state.moveHistory.isNotEmpty()
     val showExpandedNotation = notationExpanded && hasMoves
+    val detailText = when {
+        showExpandedNotation -> statusMessage
+        hasMoves -> "棋谱：${notation.collapsed}"
+        else -> statusMessage
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -270,80 +278,116 @@ private fun GameInfoPanel(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = headline,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = accent
-                    )
-                    Text(
-                        text = statusMessage,
-                        fontSize = 13.sp,
-                        color = detailColor.copy(alpha = 0.82f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (isAiThinking) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.4.dp,
-                        color = accent
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "完整棋谱",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = detailColor.copy(alpha = 0.78f)
-                )
-                TextButton(
-                    onClick = { notationExpanded = !notationExpanded },
-                    enabled = hasMoves,
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                ) {
-                    Text(
-                        text = if (showExpandedNotation) "折叠" else "展开",
-                        fontSize = 12.sp,
-                        color = if (hasMoves) accent else detailColor.copy(alpha = 0.34f)
-                    )
-                }
-            }
-            Text(
-                text = if (showExpandedNotation) notation.expanded else notation.collapsed,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .then(
-                        if (showExpandedNotation) Modifier.verticalScroll(notationScrollState)
-                        else Modifier
-                    ),
-                fontSize = 12.sp,
-                color = detailColor.copy(alpha = 0.78f),
-                maxLines = if (showExpandedNotation) Int.MAX_VALUE else 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = headline,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = accent
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = detailText,
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp,
+                                color = detailColor.copy(alpha = 0.82f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (hasMoves) {
+                                Text(
+                                    text = if (showExpandedNotation) "折叠" else "展开",
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .clickable { notationExpanded = !notationExpanded },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accent
+                                )
+                            }
+                        }
+                    }
+                    if (isAiThinking) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.4.dp,
+                            color = accent
+                        )
+                    }
+                }
 
-            actions()
+                actions()
+            }
+
+            if (showExpandedNotation) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .padding(8.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 128.dp),
+                        color = Color(0xF8F7E5C7),
+                        shape = RoundedCornerShape(8.dp),
+                        tonalElevation = 4.dp,
+                        shadowElevation = 4.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "完整棋谱",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = detailColor.copy(alpha = 0.86f)
+                                )
+                                Text(
+                                    text = "折叠",
+                                    modifier = Modifier.clickable { notationExpanded = false },
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accent
+                                )
+                            }
+                            Text(
+                                text = notation.expanded,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(notationScrollState),
+                                fontSize = 12.sp,
+                                color = detailColor.copy(alpha = 0.86f),
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
