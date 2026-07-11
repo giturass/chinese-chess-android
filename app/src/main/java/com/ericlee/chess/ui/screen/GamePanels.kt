@@ -117,7 +117,6 @@ fun AiControlPanel(
         state = state,
         statusMessage = statusMessage,
         accentSide = state.humanSide,
-        isAiThinking = isAiThinking,
         modifier = modifier
     ) {
         Row(
@@ -253,7 +252,6 @@ private fun GameInfoPanel(
     statusMessage: String,
     modifier: Modifier = Modifier,
     accentSide: Side? = null,
-    isAiThinking: Boolean = false,
     actions: @Composable ColumnScope.() -> Unit
 ) {
     val accent = accentSide?.accentColor() ?: state.accentColor()
@@ -319,15 +317,6 @@ private fun GameInfoPanel(
                                 )
                             }
                         }
-                    }
-                    if (isAiThinking) {
-                        Text(
-                            text = "AI思考中",
-                            modifier = Modifier.padding(start = 10.dp),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = accent
-                        )
                     }
                 }
 

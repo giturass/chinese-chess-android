@@ -1,5 +1,11 @@
 package com.ericlee.chess.ui.screen
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +29,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -37,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.font.FontWeight
@@ -221,17 +229,25 @@ private fun AiGameContent(
             .fillMaxSize()
             .padding(horizontal = 4.dp, vertical = 6.dp),
         content = {
-            ChessBoard(
-                board = state.board,
-                currentSide = state.currentSide,
-                status = state.status,
-                selectedPiece = selectedPiece,
-                legalMoves = legalMoves,
-                lastMove = state.lastMove,
-                isFlipped = state.isFlipped,
-                onPositionClick = onPositionClick,
-                modifier = Modifier.layoutId("board")
-            )
+            Box(modifier = Modifier.layoutId("board")) {
+                ChessBoard(
+                    board = state.board,
+                    currentSide = state.currentSide,
+                    status = state.status,
+                    selectedPiece = selectedPiece,
+                    legalMoves = legalMoves,
+                    lastMove = state.lastMove,
+                    isFlipped = state.isFlipped,
+                    onPositionClick = onPositionClick
+                )
+                if (isAiThinking) {
+                    AiThinkingBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 8.dp)
+                    )
+                }
+            }
             AiControlPanel(
                 state = state,
                 statusMessage = statusMessage,
@@ -262,6 +278,50 @@ private fun AiGameContent(
             boardPlaceable.place((constraints.maxWidth - boardPlaceable.width) / 2, boardY)
             panelPlaceable.place((constraints.maxWidth - panelPlaceable.width) / 2, panelY)
         }
+    }
+}
+
+@Composable
+private fun AiThinkingBadge(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "aiThinking")
+    val pulse by transition.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 680),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "aiThinkingPulse"
+    )
+    val dotPhase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "aiThinkingDots"
+    )
+    val dots = when (dotPhase.toInt().coerceIn(0, 2)) {
+        0 -> "."
+        1 -> ".."
+        else -> "..."
+    }
+
+    Surface(
+        modifier = modifier.graphicsLayer(alpha = pulse),
+        color = Color(0xCC1B1714),
+        contentColor = Color(0xFFFFE4A6),
+        shape = RoundedCornerShape(8.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp
+    ) {
+        Text(
+            text = "AI思考中$dots",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
