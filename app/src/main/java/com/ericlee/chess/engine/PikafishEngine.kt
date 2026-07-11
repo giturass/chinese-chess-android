@@ -23,12 +23,14 @@ class PikafishEngine(
     private var writer: BufferedWriter? = null
     private var readerThread: Thread? = null
     private var lastInfo = "Pikafish UCI"
+    @Volatile private var closed = false
 
     fun findBestMove(
         board: Board,
         depth: Int,
         positionCounts: Map<String, Int> = emptyMap()
     ): Move? = synchronized(lock) {
+        if (closed) return@synchronized null
         val legalMoves = board.getAllLegalMoves(aiSide)
         if (legalMoves.isEmpty()) return@synchronized null
 
@@ -38,7 +40,7 @@ class PikafishEngine(
         }
         val candidateMoves = safeMoves.ifEmpty { legalMoves }
 
-        ensureStarted()
+        if (!ensureStarted()) return@synchronized null
         val bestMove = search(board, depth, candidateMoves)
         if (bestMove != null && candidateMoves.any { it.sameSquares(bestMove) }) {
             bestMove
@@ -47,19 +49,37 @@ class PikafishEngine(
         }
     }
 
-    fun close() = synchronized(lock) {
-        runCatching { send("quit") }
-        runCatching { writer?.close() }
-        runCatching { process?.destroy() }
+    fun close() {
+        shutdownNow()
+    }
+
+    fun shutdownNow() {
+        closed = true
+        val currentWriter = writer
+        val currentProcess = process
+        runCatching {
+            currentWriter?.write("stop")
+            currentWriter?.newLine()
+            currentWriter?.flush()
+        }
+        runCatching {
+            currentWriter?.write("quit")
+            currentWriter?.newLine()
+            currentWriter?.flush()
+        }
+        runCatching { currentWriter?.close() }
+        runCatching { currentProcess?.destroy() }
+        runCatching { currentProcess?.destroyForcibly() }
         writer = null
         process = null
         readerThread = null
-        outputLines.clear()
+        outputLines.offer("")
     }
 
     fun getSearchInfo(): String = lastInfo
 
     private fun search(board: Board, depth: Int, searchMoves: List<Move>): Move? {
+        if (closed) return null
         clearOutput()
         send("position fen ${PikafishNotation.toFen(board, aiSide)}")
         val moveList = searchMoves.joinToString(separator = " ") { PikafishNotation.toUci(it) }
@@ -72,17 +92,25 @@ class PikafishEngine(
         return PikafishNotation.fromUci(bestMoveText)
     }
 
-    private fun ensureStarted() {
+    private fun ensureStarted(): Boolean {
+        if (closed) return false
         val existing = process
-        if (existing != null && existing.isAlive && writer != null) return
+        if (existing != null && existing.isAlive && writer != null) return true
 
         closeDeadProcess()
+        if (closed) return false
         val installed = PikafishInstaller.install(context)
+        if (closed) return false
         outputLines.clear()
         val started = ProcessBuilder(installed.binary.absolutePath)
             .directory(installed.workingDir)
             .redirectErrorStream(true)
             .start()
+        if (closed) {
+            runCatching { started.destroy() }
+            runCatching { started.destroyForcibly() }
+            return false
+        }
         process = started
         writer = BufferedWriter(OutputStreamWriter(started.outputStream))
         readerThread = Thread {
@@ -101,19 +129,34 @@ class PikafishEngine(
         }
 
         send("uci")
-        require(waitForLine(INIT_TIMEOUT_MS) { it == "uciok" } != null) {
+        val uciReady = waitForLine(INIT_TIMEOUT_MS) { it == "uciok" }
+        if (closed) {
+            closeDeadProcess()
+            return false
+        }
+        require(uciReady != null) {
             "Pikafish UCI 初始化失败"
         }
         send("setoption name Threads value ${engineThreads()}")
         send("setoption name Hash value 32")
         send("setoption name EvalFile value ${installed.evalFile.absolutePath}")
         send("isready")
-        require(waitForLine(INIT_TIMEOUT_MS) { it == "readyok" } != null) {
+        val evalReady = waitForLine(INIT_TIMEOUT_MS) { it == "readyok" }
+        if (closed) {
+            closeDeadProcess()
+            return false
+        }
+        require(evalReady != null) {
             "Pikafish NNUE 初始化失败"
         }
         send("ucinewgame")
         send("isready")
         waitForLine(INIT_TIMEOUT_MS) { it == "readyok" }
+        if (closed) {
+            closeDeadProcess()
+            return false
+        }
+        return true
     }
 
     private fun closeDeadProcess() {
@@ -125,6 +168,7 @@ class PikafishEngine(
     }
 
     private fun send(command: String) {
+        if (closed) return
         val out = writer ?: error("Pikafish 尚未启动")
         out.write(command)
         out.newLine()
@@ -140,9 +184,11 @@ class PikafishEngine(
     private fun waitForLine(timeoutMs: Long, predicate: (String) -> Boolean): String? {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
+            if (closed) return null
             val remaining = deadline - System.currentTimeMillis()
             val line = outputLines.poll(remaining.coerceAtMost(250L), TimeUnit.MILLISECONDS)
             if (line != null && predicate(line)) return line
+            if (closed) return null
             if (process?.isAlive == false) return null
         }
         return null

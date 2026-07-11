@@ -349,9 +349,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun closeEngineAsync() {
         val oldEngine = engine ?: return
         engine = null
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching { oldEngine.close() }
-        }
+        runCatching { oldEngine.shutdownNow() }
     }
 
     private fun cancelAiSearch() {
