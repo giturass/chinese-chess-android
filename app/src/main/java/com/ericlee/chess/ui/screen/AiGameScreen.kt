@@ -254,7 +254,8 @@ private fun AiGameContent(
         val boardPlaceable = measurables
             .first { it.layoutId == "board" }
             .measure(looseConstraints.copy(maxHeight = boardHeight))
-        val boardY = 0
+        val contentHeight = boardPlaceable.height + gap + panelPlaceable.height
+        val boardY = ((constraints.maxHeight - contentHeight) / 2).coerceAtLeast(0)
         val panelY = boardY + boardPlaceable.height + gap
 
         layout(constraints.maxWidth, constraints.maxHeight) {
