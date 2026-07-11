@@ -1,5 +1,6 @@
 package com.ericlee.chess
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -66,7 +68,13 @@ fun ChineseChessApp() {
     val gameViewModel: GameViewModel = viewModel()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val audio = remember(context) { GameAudio(context) }
+    val audioPrefs = remember(context) {
+        context.getSharedPreferences(GameAudio.PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    var audioMuted by rememberSaveable {
+        mutableStateOf(audioPrefs.getBoolean(GameAudio.MUTED_KEY, false))
+    }
+    val audio = remember(context) { GameAudio(context, initialMuted = audioMuted) }
     val state by gameViewModel.gameState.collectAsState()
     var heardMoveCount by remember { mutableStateOf(state.moveHistory.size) }
 
@@ -86,6 +94,13 @@ fun ChineseChessApp() {
         }
     }
 
+    LaunchedEffect(audio, audioMuted) {
+        audio.setMuted(audioMuted)
+        audioPrefs.edit()
+            .putBoolean(GameAudio.MUTED_KEY, audioMuted)
+            .apply()
+    }
+
     LaunchedEffect(state.moveHistory.size, state.lastMove) {
         if (state.moveHistory.size > heardMoveCount) {
             state.lastMove?.let { audio.playMove(capture = it.captured != null) }
@@ -98,7 +113,9 @@ fun ChineseChessApp() {
             HomeScreen(
                 onStartAiGame = { navController.navigate("ai") },
                 onStartTwoPlayerGame = { navController.navigate("two_player") },
-                onStartEndgame = { navController.navigate("endgame") }
+                onStartEndgame = { navController.navigate("endgame") },
+                audioMuted = audioMuted,
+                onAudioMutedChange = { audioMuted = it }
             )
         }
         composable("ai") {

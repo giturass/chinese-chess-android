@@ -6,7 +6,7 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import com.ericlee.chess.R
 
-class GameAudio(context: Context) {
+class GameAudio(context: Context, initialMuted: Boolean = false) {
     private val appContext = context.applicationContext
     private val soundPool = SoundPool.Builder()
         .setMaxStreams(4)
@@ -19,10 +19,21 @@ class GameAudio(context: Context) {
         .build()
     private val clickSoundId = soundPool.load(appContext, R.raw.click, 1)
     private var backgroundPlayer: MediaPlayer? = null
+    private var muted = initialMuted
     private var released = false
 
+    fun setMuted(value: Boolean) {
+        if (released || muted == value) return
+        muted = value
+        if (muted) {
+            pauseBackground()
+        } else {
+            resumeBackground()
+        }
+    }
+
     fun startBackground() {
-        if (released || backgroundPlayer != null) return
+        if (released || muted || backgroundPlayer != null) return
         backgroundPlayer = MediaPlayer.create(appContext, R.raw.bgm)?.apply {
             isLooping = true
             setVolume(0.24f, 0.24f)
@@ -31,7 +42,7 @@ class GameAudio(context: Context) {
     }
 
     fun resumeBackground() {
-        if (released) return
+        if (released || muted) return
         val player = backgroundPlayer
         if (player == null) {
             startBackground()
@@ -45,7 +56,7 @@ class GameAudio(context: Context) {
     }
 
     fun playMove(capture: Boolean) {
-        if (released) return
+        if (released || muted) return
         val volume = if (capture) 0.88f else 0.72f
         soundPool.play(clickSoundId, volume, volume, 1, 0, 1f)
     }
@@ -55,5 +66,10 @@ class GameAudio(context: Context) {
         backgroundPlayer?.release()
         backgroundPlayer = null
         soundPool.release()
+    }
+
+    companion object {
+        const val PREFS_NAME = "game_audio"
+        const val MUTED_KEY = "muted"
     }
 }

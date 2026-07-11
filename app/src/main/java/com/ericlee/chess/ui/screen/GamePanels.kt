@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -258,8 +258,11 @@ private fun GameInfoPanel(
     val accent = accentSide?.accentColor() ?: state.accentColor()
     val detailColor = if (accentSide == Side.BLACK) Color(0xFF111111) else Color(0xFF352112)
     val notation = state.fullMoveNotation()
+    val notationScrollState = rememberScrollState()
     val headline = state.headline()
     var notationExpanded by rememberSaveable { mutableStateOf(false) }
+    val hasMoves = state.moveHistory.isNotEmpty()
+    val showExpandedNotation = notationExpanded && hasMoves
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -286,7 +289,7 @@ private fun GameInfoPanel(
                         color = accent
                     )
                     Text(
-                        text = if (state.status == GameStatus.PLAYING) "棋谱：${notation.collapsed}" else statusMessage,
+                        text = statusMessage,
                         fontSize = 13.sp,
                         color = detailColor.copy(alpha = 0.82f),
                         maxLines = 1,
@@ -302,44 +305,43 @@ private fun GameInfoPanel(
                 }
             }
 
-            if (state.moveHistory.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "完整棋谱",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = detailColor.copy(alpha = 0.78f)
+                )
+                TextButton(
+                    onClick = { notationExpanded = !notationExpanded },
+                    enabled = hasMoves,
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = "完整棋谱",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = detailColor.copy(alpha = 0.78f)
+                        text = if (showExpandedNotation) "折叠" else "展开",
+                        fontSize = 12.sp,
+                        color = if (hasMoves) accent else detailColor.copy(alpha = 0.34f)
                     )
-                    TextButton(
-                        onClick = { notationExpanded = !notationExpanded },
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-                    ) {
-                        Text(
-                            text = if (notationExpanded) "折叠" else "展开",
-                            fontSize = 12.sp,
-                            color = accent
-                        )
-                    }
                 }
-                Text(
-                    text = notation.expanded,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = if (notationExpanded) 92.dp else 20.dp)
-                        .then(
-                            if (notationExpanded) Modifier.verticalScroll(rememberScrollState())
-                            else Modifier
-                        ),
-                    fontSize = 12.sp,
-                    color = detailColor.copy(alpha = 0.78f),
-                    maxLines = if (notationExpanded) Int.MAX_VALUE else 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
+            Text(
+                text = if (showExpandedNotation) notation.expanded else notation.collapsed,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .then(
+                        if (showExpandedNotation) Modifier.verticalScroll(notationScrollState)
+                        else Modifier
+                    ),
+                fontSize = 12.sp,
+                color = detailColor.copy(alpha = 0.78f),
+                maxLines = if (showExpandedNotation) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
             actions()
         }

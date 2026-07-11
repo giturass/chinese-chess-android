@@ -22,7 +22,9 @@ import com.ericlee.chess.ui.theme.battlefieldTexture
 fun HomeScreen(
     onStartAiGame: () -> Unit,
     onStartTwoPlayerGame: () -> Unit,
-    onStartEndgame: () -> Unit
+    onStartEndgame: () -> Unit,
+    audioMuted: Boolean,
+    onAudioMutedChange: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember {
@@ -41,9 +43,11 @@ fun HomeScreen(
 
     when (settingsPane) {
         HomeSettingsPane.MENU -> SettingsMenuDialog(
+            audioMuted = audioMuted,
             onDismiss = {
                 settingsPane = null
             },
+            onAudioMutedChange = onAudioMutedChange,
             onOpenOnlineSettings = { settingsPane = HomeSettingsPane.ONLINE }
         )
 
@@ -145,7 +149,9 @@ fun HomeScreen(
 
 @Composable
 private fun SettingsMenuDialog(
+    audioMuted: Boolean,
     onDismiss: () -> Unit,
+    onAudioMutedChange: (Boolean) -> Unit,
     onOpenOnlineSettings: () -> Unit
 ) {
     AlertDialog(
@@ -161,6 +167,12 @@ private fun SettingsMenuDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                SettingsSwitchRow(
+                    title = "静音",
+                    subtitle = "背景音乐与吃子音效",
+                    checked = audioMuted,
+                    onCheckedChange = onAudioMutedChange
+                )
                 SettingsMenuButton(
                     title = "联机设置",
                     subtitle = "服务器地址与房间连接",
@@ -169,6 +181,49 @@ private fun SettingsMenuDialog(
             }
         }
     )
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF4A2C18)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFFFE4A6)
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Color(0xFFFFF0D4).copy(alpha = 0.78f)
+                )
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange
+            )
+        }
+    }
 }
 
 @Composable
