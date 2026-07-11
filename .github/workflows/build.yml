@@ -37,8 +37,47 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug
 
+      - name: Upload APK Artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: chinese-chess-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Resolve Release Metadata
+        if: github.event_name != 'pull_request'
+        id: release
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            echo "name=Latest Android APK" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Move Latest Release Tag
+        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f latest "$GITHUB_SHA"
+          git push origin refs/tags/latest --force
+
       - name: Upload APK to Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ steps.release.outputs.prerelease }}
+          make_latest: ${{ steps.release.outputs.make_latest }}
           files: app/build/outputs/apk/debug/*.apk
+          fail_on_unmatched_files: true
