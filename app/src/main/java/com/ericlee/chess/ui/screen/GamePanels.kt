@@ -496,17 +496,10 @@ private fun MoveNotationRow(
             textAlign = TextAlign.End
         )
         Text(
-            text = "红",
+            text = line.redMove,
             modifier = Modifier
                 .padding(start = 8.dp)
-                .width(18.dp),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFB32318)
-        )
-        Text(
-            text = line.redMove,
-            modifier = Modifier.weight(1f),
+                .weight(1f),
             fontSize = 12.sp,
             color = textColor,
             maxLines = 1,
@@ -514,17 +507,10 @@ private fun MoveNotationRow(
         )
         if (line.blackMove.isNotBlank()) {
             Text(
-                text = "黑",
+                text = line.blackMove,
                 modifier = Modifier
                     .padding(start = 8.dp)
-                    .width(18.dp),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF1F1711)
-            )
-            Text(
-                text = line.blackMove,
-                modifier = Modifier.weight(1f),
+                    .weight(1f),
                 fontSize = 12.sp,
                 color = textColor,
                 maxLines = 1,
@@ -536,10 +522,10 @@ private fun MoveNotationRow(
 
 private fun MoveNotationLine.collapsedText(): String = buildString {
     append(number)
-    append(".红 ")
+    append(".")
     append(redMove)
     if (blackMove.isNotBlank()) {
-        append("  黑 ")
+        append("  ")
         append(blackMove)
     }
 }
