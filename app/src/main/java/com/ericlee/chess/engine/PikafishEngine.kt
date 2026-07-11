@@ -9,6 +9,7 @@ import com.ericlee.chess.model.PieceType
 import com.ericlee.chess.model.Side
 import java.io.BufferedWriter
 import java.io.File
+import java.io.IOException
 import java.io.OutputStreamWriter
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -57,6 +58,11 @@ class PikafishEngine(
         closed = true
         val currentWriter = writer
         val currentProcess = process
+        val currentReaderThread = readerThread
+        writer = null
+        process = null
+        readerThread = null
+        outputLines.offer("")
         runCatching {
             currentWriter?.write("stop")
             currentWriter?.newLine()
@@ -70,10 +76,8 @@ class PikafishEngine(
         runCatching { currentWriter?.close() }
         runCatching { currentProcess?.destroy() }
         runCatching { currentProcess?.destroyForcibly() }
-        writer = null
-        process = null
-        readerThread = null
-        outputLines.offer("")
+        runCatching { currentProcess?.inputStream?.close() }
+        currentReaderThread?.interrupt()
     }
 
     fun getSearchInfo(): String = lastInfo
@@ -114,13 +118,17 @@ class PikafishEngine(
         process = started
         writer = BufferedWriter(OutputStreamWriter(started.outputStream))
         readerThread = Thread {
-            started.inputStream.bufferedReader().useLines { lines ->
-                lines.forEach { line ->
-                    outputLines.offer(line)
-                    if (line.startsWith("info ")) {
-                        lastInfo = line
+            try {
+                started.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        outputLines.offer(line)
+                        if (line.startsWith("info ")) {
+                            lastInfo = line
+                        }
                     }
                 }
+            } catch (_: IOException) {
+                // Shutdown closes the process pipe while this thread may be blocked in read().
             }
         }.apply {
             name = "pikafish-uci-reader"
