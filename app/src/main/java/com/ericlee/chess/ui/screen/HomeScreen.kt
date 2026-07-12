@@ -175,7 +175,7 @@ private fun SettingsMenuDialog(
                 )
                 SettingsMenuButton(
                     title = "联机设置",
-                    subtitle = "服务器地址与房间连接",
+                    subtitle = "更改默认联机服务器地址",
                     onClick = onOpenOnlineSettings
                 )
             }

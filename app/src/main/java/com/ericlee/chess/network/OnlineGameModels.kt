@@ -31,10 +31,26 @@ data class OnlineSnapshot(
     val moveOffset: Int = 0,
     val totalMoves: Int = 0,
     val pendingAction: OnlinePendingAction? = null,
+    val actionReceipt: OnlineActionReceipt? = null,
     val playerCount: Int = 0,
     val revision: Long = 0L,
     val message: String = ""
 )
+
+data class OnlineActionReceipt(
+    val id: String = "",
+    val type: String = "",
+    val requester: Side = Side.RED,
+    val responder: Side = Side.BLACK,
+    val accepted: Boolean = false
+) {
+    val message: String
+        get() = when (type) {
+            "undo" -> "对方已同意悔棋"
+            "draw" -> "对方已同意和棋"
+            else -> "对方已同意请求"
+        }
+}
 
 data class OnlinePendingAction(
     val type: String = "",
@@ -66,6 +82,7 @@ data class OnlineMoveRequest(
     val move: OnlineMoveDto,
     val requestId: String,
     val expectedRevision: Long,
+    val baseMoveCount: Int,
     val knownMoveCount: Int
 )
 
@@ -92,11 +109,13 @@ data class OnlineSessionState(
     val movePending: Boolean = false,
     val playerCount: Int = 0,
     val pendingAction: OnlinePendingAction? = null,
+    val actionReceipt: OnlineActionReceipt? = null,
     val revision: Long = 0L,
     val message: String = ""
 ) {
     val hasJoinedRoom: Boolean get() = roomId.isNotBlank() && playerId.isNotBlank() && side != null
-    val canMove: Boolean get() = connected && !movePending && side != null && playerCount >= 2
+    val canAct: Boolean get() = connected && !movePending && side != null && playerCount >= 2
+    val canMove: Boolean get() = canAct
 }
 
 private fun Side.displayName(): String = if (this == Side.RED) "红方" else "黑方"

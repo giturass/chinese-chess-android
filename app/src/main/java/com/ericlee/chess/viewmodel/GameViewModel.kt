@@ -331,7 +331,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _activeEndgamePuzzleId.value = null
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
-        _savedGamePrompt.value = saveRepository.loadSummary()
+        _savedGamePrompt.value = null
     }
 
     fun leaveEndgamePuzzle() {
@@ -545,6 +545,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     connected = true,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    actionReceipt = snapshot.actionReceipt,
                     revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已连接" }
                 )
@@ -599,6 +600,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val session = _onlineSession.value
         if (!session.canMove) return
 
+        val previousState = _gameState.value
+        val optimisticState = previousState.makeMove(move)
+        _gameState.value = optimisticState
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        updateStatusMessage(optimisticState)
+
         onlineMoveInFlight = true
         _onlineSession.value = session.copy(
             movePending = true,
@@ -613,7 +621,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         playerId = session.playerId,
                         move = OnlineMoveDto.fromMove(move),
                         expectedRevision = session.revision,
-                        knownMoveCount = _gameState.value.moveHistory.size
+                        knownMoveCount = optimisticState.moveHistory.size
                     )
                 }
             }.onSuccess { snapshot ->
@@ -631,20 +639,29 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     movePending = false,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    actionReceipt = snapshot.actionReceipt,
                     revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
             }.onFailure { error ->
                 if (version != gameVersion) return@onFailure
                 onlineMoveInFlight = false
+                if (_gameState.value.moveHistory.size == optimisticState.moveHistory.size) {
+                    _gameState.value = previousState
+                    updateStatusMessage(previousState)
+                }
+                onlineForceFullSync = true
                 if (recoverOnlineSession(error)) return@onFailure
                 _onlineSession.value = _onlineSession.value.copy(
-                    connected = false,
+                    connected = true,
                     connecting = false,
-                    reconnecting = true,
+                    reconnecting = false,
                     movePending = false,
-                    message = error.message ?: "同步失败"
+                    message = error.message ?: "走棋未同步，正在校准"
                 )
+                viewModelScope.launch {
+                    pollOnlineSnapshot(waitForChange = false, version = version)
+                }
             }
         }
     }
@@ -652,7 +669,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun sendOnlineAction(action: String) {
         val client = onlineClient ?: return
         val session = _onlineSession.value
-        if (!session.canMove) return
+        if (!session.canAct) return
         val version = gameVersion
 
         viewModelScope.launch {
@@ -676,6 +693,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     reconnecting = false,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
+                    actionReceipt = snapshot.actionReceipt,
                     revision = snapshot.revision,
                     message = snapshot.message.ifBlank { "已同步" }
                 )
@@ -760,6 +778,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             reconnecting = false,
             playerCount = snapshot.playerCount,
             pendingAction = snapshot.pendingAction,
+            actionReceipt = snapshot.actionReceipt,
             revision = snapshot.revision,
             message = snapshot.message.ifBlank { "已连接" }
         )

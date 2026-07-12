@@ -69,6 +69,7 @@ class OnlineGameClient(
                 move = move,
                 requestId = UUID.randomUUID().toString(),
                 expectedRevision = expectedRevision,
+                baseMoveCount = (knownMoveCount - 1).coerceAtLeast(0),
                 knownMoveCount = knownMoveCount
             ),
             responseClass = OnlineSnapshot::class.java

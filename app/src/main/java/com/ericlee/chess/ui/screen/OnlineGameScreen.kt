@@ -31,6 +31,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,45 +92,37 @@ fun OnlineGameScreen(
             OnlineServerConfig.DEFAULT_SERVER_URL
         ).orEmpty().ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
     }
-    var confirmExit by remember { mutableStateOf(false) }
     var confirmResign by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
+    var notificationPlayerId by rememberSaveable { mutableStateOf("") }
+    var lastSeenReceiptId by rememberSaveable { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
     val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
 
-    BackHandler {
-        if (session.hasJoinedRoom) {
-            confirmExit = true
-        } else {
-            onBack()
-        }
-    }
+    BackHandler(onBack = onBack)
 
     DisposableEffect(Unit) {
         onDispose { viewModel.disconnectOnline() }
     }
 
-    if (confirmExit) {
-        AlertDialog(
-            onDismissRequest = { confirmExit = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmExit = false
-                        viewModel.disconnectOnline()
-                        onBack()
-                    }
-                ) {
-                    Text("确认")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmExit = false }) {
-                    Text("取消")
-                }
-            },
-            title = { Text("退出联机对战？") },
-            text = { Text("退出后当前设备会离开房间。") }
-        )
+    LaunchedEffect(session.playerId, session.actionReceipt?.id) {
+        if (session.playerId.isBlank()) return@LaunchedEffect
+        if (notificationPlayerId != session.playerId) {
+            notificationPlayerId = session.playerId
+            lastSeenReceiptId = session.actionReceipt?.id.orEmpty()
+            return@LaunchedEffect
+        }
+        val receipt = session.actionReceipt ?: return@LaunchedEffect
+        if (receipt.id == lastSeenReceiptId) {
+            return@LaunchedEffect
+        }
+        lastSeenReceiptId = receipt.id
+        if (receipt.accepted && receipt.requester == session.side) {
+            snackbarHostState.showSnackbar(
+                message = receipt.message,
+                duration = SnackbarDuration.Short
+            )
+        }
     }
 
     if (pendingAction != null) {
@@ -199,11 +195,12 @@ fun OnlineGameScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("双人对战 · 联机") },
+                title = { Text("双人•联机") },
                 navigationIcon = {
-                    IconButton(onClick = { if (session.hasJoinedRoom) confirmExit = true else onBack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
