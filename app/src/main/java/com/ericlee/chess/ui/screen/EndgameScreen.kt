@@ -15,6 +15,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,7 +28,6 @@ import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -238,57 +239,74 @@ private fun GameContent(
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .stoneChamberTexture()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .battlefieldTexture()
+                .padding(horizontal = 4.dp, vertical = 6.dp)
         ) {
-            EndgameControlPanel(
-                state = state,
-                statusMessage = statusMessage,
-                side = topSide,
-                puzzleDescription = "${puzzle.goal} · ${puzzle.description}",
-                showActions = false,
-                onUndo = onUndo,
-                onHint = onShowHint,
-                onReset = onReset,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
+            EndgameGameLayout(
+                modifier = Modifier.fillMaxSize(),
+                board = {
+                    ChessBoard(
+                        board = state.board,
+                        currentSide = state.currentSide,
+                        status = state.status,
+                        selectedPiece = selectedPiece,
+                        legalMoves = legalMoves,
+                        lastMove = state.lastMove,
+                        isFlipped = state.isFlipped,
+                        onPositionClick = onPositionClick,
+                        modifier = Modifier.layoutId("board")
+                    )
+                },
+                controlPanel = {
+                    EndgameControlPanel(
+                        state = state,
+                        statusMessage = statusMessage,
+                        side = bottomSide,
+                        showActions = true,
+                        onUndo = onUndo,
+                        onHint = onShowHint,
+                        onReset = onReset,
+                        modifier = Modifier
+                            .layoutId("panel")
+                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
             )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(4.dp))
+@Composable
+private fun EndgameGameLayout(
+    board: @Composable () -> Unit,
+    controlPanel: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Layout(
+        modifier = modifier,
+        content = {
+            board()
+            controlPanel()
+        }
+    ) { measurables, constraints ->
+        val gap = 4.dp.roundToPx()
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val panelPlaceable = measurables.first { it.layoutId == "panel" }.measure(loose)
+        val boardMaxHeight = (
+            constraints.maxHeight - (panelPlaceable.height + gap) * 2
+        ).coerceAtLeast(0)
+        val boardPlaceable = measurables.first { it.layoutId == "board" }
+            .measure(loose.copy(maxHeight = boardMaxHeight))
+        val boardY = ((constraints.maxHeight - boardPlaceable.height) / 2).coerceAtLeast(0)
+        val panelY = boardY + boardPlaceable.height + gap
 
-            ChessBoard(
-                board = state.board,
-                currentSide = state.currentSide,
-                status = state.status,
-                selectedPiece = selectedPiece,
-                legalMoves = legalMoves,
-                lastMove = state.lastMove,
-                isFlipped = state.isFlipped,
-                onPositionClick = onPositionClick
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            EndgameControlPanel(
-                state = state,
-                statusMessage = statusMessage,
-                side = bottomSide,
-                puzzleDescription = "${puzzle.category} · ${puzzle.goal}",
-                showActions = true,
-                onUndo = onUndo,
-                onHint = onShowHint,
-                onReset = onReset,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-            )
-
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            boardPlaceable.place((constraints.maxWidth - boardPlaceable.width) / 2, boardY)
+            panelPlaceable.place((constraints.maxWidth - panelPlaceable.width) / 2, panelY)
         }
     }
 }

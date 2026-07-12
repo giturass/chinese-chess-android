@@ -63,7 +63,6 @@ import com.ericlee.chess.model.Side
 import com.ericlee.chess.network.OnlineServerConfig
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 import kotlin.random.Random
 
@@ -267,7 +266,7 @@ fun OnlineGameScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .stoneChamberTexture()
+                    .battlefieldTexture()
                     .padding(padding)
             ) {
                 OnlineGameContent(

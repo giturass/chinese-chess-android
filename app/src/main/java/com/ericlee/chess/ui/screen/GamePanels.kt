@@ -194,7 +194,6 @@ fun EndgameControlPanel(
     state: GameState,
     statusMessage: String,
     side: Side,
-    puzzleDescription: String,
     showActions: Boolean,
     onUndo: () -> Unit,
     onHint: () -> Unit,
@@ -208,11 +207,6 @@ fun EndgameControlPanel(
         modifier = modifier
     ) {
         if (showActions) {
-            Text(
-                text = puzzleDescription,
-                fontSize = 13.sp,
-                color = Color(0xFF352112).copy(alpha = 0.78f)
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -59,7 +59,6 @@ import com.ericlee.chess.model.Piece
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -207,7 +206,7 @@ fun AiGameScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .stoneChamberTexture()
+                    .battlefieldTexture()
                     .padding(padding)
             ) {
                 AiGameContent(

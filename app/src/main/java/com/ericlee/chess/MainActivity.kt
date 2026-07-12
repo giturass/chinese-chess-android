@@ -31,6 +31,7 @@ import com.ericlee.chess.audio.GameAudio
 import com.ericlee.chess.data.SavedGameSummary
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.ui.screen.AiGameScreen
+import com.ericlee.chess.ui.screen.AppSplashScreen
 import com.ericlee.chess.ui.screen.EndgameScreen
 import com.ericlee.chess.ui.screen.HomeScreen
 import com.ericlee.chess.ui.screen.LocalGameScreen
@@ -45,7 +46,12 @@ class MainActivity : ComponentActivity() {
         enableImmersiveMode()
         setContent {
             ChineseChessTheme {
-                ChineseChessApp()
+                var showSplash by remember { mutableStateOf(true) }
+                if (showSplash) {
+                    AppSplashScreen(onFinished = { showSplash = false })
+                } else {
+                    ChineseChessApp()
+                }
             }
         }
     }

@@ -43,7 +43,6 @@ import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
 import com.ericlee.chess.ui.theme.battlefieldTexture
-import com.ericlee.chess.ui.theme.stoneChamberTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -174,7 +173,7 @@ fun LocalGameScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (gameStarted) Modifier.stoneChamberTexture() else Modifier.battlefieldTexture())
+                .battlefieldTexture()
                 .padding(padding)
         ) {
             if (!gameStarted) {
