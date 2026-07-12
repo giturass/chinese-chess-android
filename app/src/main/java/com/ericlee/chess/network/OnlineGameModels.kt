@@ -28,6 +28,8 @@ data class OnlineSnapshot(
     val side: Side = Side.RED,
     val status: GameStatus = GameStatus.PLAYING,
     val moves: List<OnlineMoveDto> = emptyList(),
+    val moveOffset: Int = 0,
+    val totalMoves: Int = 0,
     val pendingAction: OnlinePendingAction? = null,
     val playerCount: Int = 0,
     val revision: Long = 0L,
@@ -61,12 +63,18 @@ data class OnlineJoinRequest(
 
 data class OnlineMoveRequest(
     val playerId: String,
-    val move: OnlineMoveDto
+    val move: OnlineMoveDto,
+    val requestId: String,
+    val expectedRevision: Long,
+    val knownMoveCount: Int
 )
 
 data class OnlineActionRequest(
     val playerId: String,
-    val action: String
+    val action: String,
+    val requestId: String,
+    val expectedRevision: Long,
+    val knownMoveCount: Int
 )
 
 data class OnlineLeaveRequest(

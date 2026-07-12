@@ -9,6 +9,7 @@ import com.ericlee.chess.engine.PikafishEngine
 import com.ericlee.chess.model.*
 import com.ericlee.chess.network.OnlineGameClient
 import com.ericlee.chess.network.OnlineMoveDto
+import com.ericlee.chess.network.OnlineRequestException
 import com.ericlee.chess.network.OnlineSessionState
 import com.ericlee.chess.network.OnlineSnapshot
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var onlinePollJob: Job? = null
     private var onlineFlippedOverride: Boolean? = null
     private var onlineMoveInFlight = false
+    private var onlineForceFullSync = false
     private var onlineRevision = 0L
     private var lastOnlineServerUrl = ""
     private var lastOnlineRoomId = ""
@@ -322,14 +324,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun leaveActiveGame() {
+        persistActiveGame()
         cancelAiSearch()
         closeEngineAsync()
-        saveRepository.clear()
         _activeGameStarted.value = false
         _activeEndgamePuzzleId.value = null
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
-        _savedGamePrompt.value = null
+        _savedGamePrompt.value = saveRepository.loadSummary()
     }
 
     fun leaveEndgamePuzzle() {
@@ -502,6 +504,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val version = gameVersion
         onlineFlippedOverride = null
         onlineMoveInFlight = false
+        onlineForceFullSync = false
         onlineRevision = 0L
         val client = OnlineGameClient(cleanedServerUrl)
         onlineClient = client
@@ -567,6 +570,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         onlinePollJob = null
         onlineClient = null
         onlineMoveInFlight = false
+        onlineForceFullSync = false
         onlineRevision = 0L
         _onlineSession.value = OnlineSessionState()
         if (client != null && session.roomId.isNotBlank() && session.playerId.isNotBlank()) {
@@ -607,7 +611,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     client.sendMove(
                         roomId = session.roomId,
                         playerId = session.playerId,
-                        move = OnlineMoveDto.fromMove(move)
+                        move = OnlineMoveDto.fromMove(move),
+                        expectedRevision = session.revision,
+                        knownMoveCount = _gameState.value.moveHistory.size
                     )
                 }
             }.onSuccess { snapshot ->
@@ -631,6 +637,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }.onFailure { error ->
                 if (version != gameVersion) return@onFailure
                 onlineMoveInFlight = false
+                if (recoverOnlineSession(error)) return@onFailure
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
                     connecting = false,
@@ -651,7 +658,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    client.sendAction(session.roomId, session.playerId, action)
+                    client.sendAction(
+                        roomId = session.roomId,
+                        playerId = session.playerId,
+                        action = action,
+                        expectedRevision = session.revision,
+                        knownMoveCount = _gameState.value.moveHistory.size
+                    )
                 }
             }.onSuccess { snapshot ->
                 if (version != gameVersion) return@onSuccess
@@ -668,6 +681,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }.onFailure { error ->
                 if (version != gameVersion) return@onFailure
+                if (recoverOnlineSession(error)) return@onFailure
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
                     connecting = false,
@@ -710,7 +724,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (session.playerId.isBlank() || session.roomId.isBlank()) return false
         if (onlineMoveInFlight) return true
         val beforeRevision = onlineRevision
-        val longPoll = waitForChange && beforeRevision > 0L
+        val longPoll = waitForChange && beforeRevision > 0L && !onlineForceFullSync
 
         val result = runCatching {
             withContext(Dispatchers.IO) {
@@ -718,13 +732,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     roomId = session.roomId,
                     playerId = session.playerId,
                     sinceRevision = beforeRevision.takeIf { longPoll },
-                    waitMs = if (longPoll) ONLINE_STATE_WAIT_MS else 0
+                    waitMs = if (longPoll) ONLINE_STATE_WAIT_MS else 0,
+                    knownMoveCount = if (onlineForceFullSync) 0 else _gameState.value.moveHistory.size
                 )
             }
         }
 
         val snapshot = result.getOrElse { error ->
             if (version != gameVersion) return false
+            if (recoverOnlineSession(error)) return false
             _onlineSession.value = _onlineSession.value.copy(
                 connected = false,
                 connecting = false,
@@ -750,23 +766,63 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
+    private fun recoverOnlineSession(error: Throwable): Boolean {
+        val requestError = error as? OnlineRequestException ?: return false
+        if (requestError.errorCode !in TERMINAL_ONLINE_ERROR_CODES) return false
+
+        val session = _onlineSession.value
+        if (session.serverUrl.isBlank() || session.roomId.isBlank()) return false
+        _statusMessage.value = "会话已失效，正在重新加入房间"
+        startOnlineGame(
+            roomId = session.roomId,
+            serverUrl = session.serverUrl,
+            preferredSide = session.side
+        )
+        return true
+    }
+
     private fun applyOnlineSnapshot(snapshot: OnlineSnapshot) {
         onlineRevision = maxOf(onlineRevision, snapshot.revision)
         val playerSide = snapshot.side
         val previousState = _gameState.value
-        var state = GameState(
-            mode = GameMode.ONLINE,
-            isFlipped = onlineFlippedOverride ?: (playerSide == Side.BLACK),
-            humanSide = playerSide
-        )
+        val totalMoves = when {
+            snapshot.totalMoves > 0 -> snapshot.totalMoves
+            snapshot.moveOffset > 0 -> snapshot.moveOffset + snapshot.moves.size
+            else -> snapshot.moves.size
+        }
+        val canApplyDelta = snapshot.moveOffset > 0 &&
+            previousState.mode == GameMode.ONLINE &&
+            previousState.moveHistory.size == snapshot.moveOffset &&
+            snapshot.moveOffset + snapshot.moves.size == totalMoves
+
+        if (snapshot.moveOffset > 0 && !canApplyDelta) {
+            onlineForceFullSync = true
+            return
+        }
+
+        var state = if (canApplyDelta) {
+            previousState.copy(
+                isFlipped = onlineFlippedOverride ?: (playerSide == Side.BLACK),
+                humanSide = playerSide
+            )
+        } else {
+            GameState(
+                mode = GameMode.ONLINE,
+                isFlipped = onlineFlippedOverride ?: (playerSide == Side.BLACK),
+                humanSide = playerSide
+            )
+        }
         snapshot.moves.forEach { moveDto ->
             if (state.status == GameStatus.PLAYING) {
                 state = state.makeMove(moveDto.toMove())
             }
         }
-        if (snapshot.status != GameStatus.PLAYING) {
-            state = state.copy(status = snapshot.status)
+        state = state.copy(status = snapshot.status)
+        if (state.moveHistory.size != totalMoves) {
+            onlineForceFullSync = true
+            return
         }
+        onlineForceFullSync = false
 
         val boardChanged = previousState.mode != GameMode.ONLINE ||
             previousState.moveHistory.size != state.moveHistory.size ||
@@ -803,6 +859,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         const val ONLINE_STATE_WAIT_MS = 15_000
         const val MIN_ONLINE_POLL_INTERVAL_MS = 250L
         const val MAX_ONLINE_RETRY_DELAY_MS = 15_000L
+        val TERMINAL_ONLINE_ERROR_CODES = setOf("SESSION_EXPIRED", "ROOM_NOT_FOUND")
         val ENGINE_CLEANUP_EXECUTOR = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "pikafish-cleanup").apply { isDaemon = true }
         }

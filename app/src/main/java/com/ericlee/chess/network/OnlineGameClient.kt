@@ -6,6 +6,13 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.UUID
+
+class OnlineRequestException(
+    val errorCode: String,
+    val statusCode: Int,
+    message: String
+) : IllegalStateException(message)
 
 class OnlineGameClient(
     serverUrl: String,
@@ -30,7 +37,8 @@ class OnlineGameClient(
         roomId: String,
         playerId: String,
         sinceRevision: Long? = null,
-        waitMs: Int = 0
+        waitMs: Int = 0,
+        knownMoveCount: Int = 0
     ): OnlineSnapshot {
         val waitQuery = if (sinceRevision != null && waitMs > 0) {
             "&since=$sinceRevision&wait=$waitMs"
@@ -38,7 +46,7 @@ class OnlineGameClient(
             ""
         }
         return request(
-            path = "/api/rooms/${roomId.pathPart()}?playerId=${playerId.queryPart()}$waitQuery",
+            path = "/api/rooms/${roomId.pathPart()}?playerId=${playerId.queryPart()}&fromMove=$knownMoveCount$waitQuery",
             method = "GET",
             body = null,
             responseClass = OnlineSnapshot::class.java,
@@ -46,19 +54,43 @@ class OnlineGameClient(
         )
     }
 
-    fun sendMove(roomId: String, playerId: String, move: OnlineMoveDto): OnlineSnapshot =
+    fun sendMove(
+        roomId: String,
+        playerId: String,
+        move: OnlineMoveDto,
+        expectedRevision: Long,
+        knownMoveCount: Int
+    ): OnlineSnapshot =
         request(
             path = "/api/rooms/${roomId.pathPart()}/move",
             method = "POST",
-            body = OnlineMoveRequest(playerId = playerId, move = move),
+            body = OnlineMoveRequest(
+                playerId = playerId,
+                move = move,
+                requestId = UUID.randomUUID().toString(),
+                expectedRevision = expectedRevision,
+                knownMoveCount = knownMoveCount
+            ),
             responseClass = OnlineSnapshot::class.java
         )
 
-    fun sendAction(roomId: String, playerId: String, action: String): OnlineSnapshot =
+    fun sendAction(
+        roomId: String,
+        playerId: String,
+        action: String,
+        expectedRevision: Long,
+        knownMoveCount: Int
+    ): OnlineSnapshot =
         request(
             path = "/api/rooms/${roomId.pathPart()}/action",
             method = "POST",
-            body = OnlineActionRequest(playerId = playerId, action = action),
+            body = OnlineActionRequest(
+                playerId = playerId,
+                action = action,
+                requestId = UUID.randomUUID().toString(),
+                expectedRevision = expectedRevision,
+                knownMoveCount = knownMoveCount
+            ),
             responseClass = OnlineSnapshot::class.java
         )
 
@@ -105,7 +137,12 @@ class OnlineGameClient(
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
 
             if (code !in 200..299) {
-                throw IllegalStateException(parseError(text).ifBlank { "服务端返回 $code" })
+                val error = parseError(text)
+                throw OnlineRequestException(
+                    errorCode = error.code.ifBlank { "HTTP_$code" },
+                    statusCode = code,
+                    message = error.error.ifBlank { "服务端返回 $code" }
+                )
             }
 
             return gson.fromJson(text, responseClass)
@@ -114,17 +151,18 @@ class OnlineGameClient(
         }
     }
 
-    private fun parseError(text: String): String {
-        return runCatching {
-            gson.fromJson(text, ErrorResponse::class.java).error
-        }.getOrNull().orEmpty()
-    }
+    private fun parseError(text: String): ErrorResponse =
+        runCatching { gson.fromJson(text, ErrorResponse::class.java) }
+            .getOrNull() ?: ErrorResponse()
 
     private fun String.pathPart(): String = URLEncoder.encode(this, "UTF-8").replace("+", "%20")
 
     private fun String.queryPart(): String = URLEncoder.encode(this, "UTF-8")
 
-    private data class ErrorResponse(val error: String = "")
+    private data class ErrorResponse(
+        val error: String = "",
+        val code: String = ""
+    )
 
     private data class LeaveResponse(val ok: Boolean = false)
 
