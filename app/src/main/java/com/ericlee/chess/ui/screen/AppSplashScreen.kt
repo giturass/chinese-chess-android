@@ -70,7 +70,7 @@ fun AppSplashScreen(onFinished: () -> Unit) {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = "帅",
+                        text = "帥",
                         fontSize = 72.sp,
                         fontWeight = FontWeight.Bold
                     )
