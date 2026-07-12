@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -154,6 +155,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun executeMove(move: Move) {
         val state = _gameState.value
+        if (state.mode == GameMode.ONLINE) {
+            _selectedPiece.value = null
+            _legalMoves.value = emptyList()
+            sendOnlineMove(move)
+            return
+        }
+
         val newState = state.makeMove(move)
         _gameState.value = newState
         _selectedPiece.value = null
@@ -161,11 +169,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         updateStatusMessage(newState)
         persistActiveGame()
-
-        if (newState.mode == GameMode.ONLINE) {
-            sendOnlineMove(move)
-            return
-        }
 
         if (newState.status == GameStatus.PLAYING &&
             newState.mode == GameMode.ENDGAME &&
@@ -329,6 +332,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _savedGamePrompt.value = saveRepository.loadSummary()
     }
 
+    fun leaveEndgamePuzzle() {
+        if (_gameState.value.mode != GameMode.ENDGAME) return
+        gameVersion++
+        cancelAiSearch()
+        closeEngineAsync()
+        saveRepository.clear()
+        _activeGameStarted.value = false
+        _activeEndgamePuzzleId.value = null
+        _selectedPiece.value = null
+        _legalMoves.value = emptyList()
+        _savedGamePrompt.value = null
+        _statusMessage.value = ""
+    }
+
     private fun persistActiveGame() {
         val state = _gameState.value
         if (!_activeGameStarted.value) return
@@ -349,7 +366,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun closeEngineAsync() {
         val oldEngine = engine ?: return
         engine = null
-        runCatching { oldEngine.shutdownNow() }
+        oldEngine.requestStop()
+        ENGINE_CLEANUP_EXECUTOR.execute {
+            runCatching { oldEngine.shutdownNow() }
+        }
     }
 
     private fun cancelAiSearch() {
@@ -576,6 +596,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (!session.canMove) return
 
         onlineMoveInFlight = true
+        _onlineSession.value = session.copy(
+            movePending = true,
+            message = "正在提交走棋"
+        )
         val version = gameVersion
         viewModelScope.launch {
             runCatching {
@@ -589,11 +613,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }.onSuccess { snapshot ->
                 if (version != gameVersion) return@onSuccess
                 onlineMoveInFlight = false
-                if (snapshot.revision < onlineRevision) return@onSuccess
+                if (snapshot.revision < onlineRevision) {
+                    _onlineSession.value = _onlineSession.value.copy(movePending = false)
+                    return@onSuccess
+                }
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
                     connecting = false,
+                    reconnecting = false,
+                    movePending = false,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
                     revision = snapshot.revision,
@@ -604,6 +633,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 onlineMoveInFlight = false
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
+                    connecting = false,
+                    reconnecting = true,
+                    movePending = false,
                     message = error.message ?: "同步失败"
                 )
             }
@@ -627,6 +659,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 applyOnlineSnapshot(snapshot)
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = true,
+                    connecting = false,
+                    reconnecting = false,
                     playerCount = snapshot.playerCount,
                     pendingAction = snapshot.pendingAction,
                     revision = snapshot.revision,
@@ -636,6 +670,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (version != gameVersion) return@onFailure
                 _onlineSession.value = _onlineSession.value.copy(
                     connected = false,
+                    connecting = false,
+                    reconnecting = true,
                     message = error.message ?: "同步失败"
                 )
             }
@@ -646,27 +682,37 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         onlinePollJob?.cancel()
         val version = gameVersion
         onlinePollJob = viewModelScope.launch {
+            var failureCount = 0
             while (isActive && version == gameVersion) {
                 val startedAt = System.currentTimeMillis()
-                pollOnlineSnapshot(waitForChange = true, version = version)
+                val succeeded = pollOnlineSnapshot(waitForChange = true, version = version)
+                failureCount = if (succeeded) 0 else (failureCount + 1).coerceAtMost(5)
                 val elapsed = System.currentTimeMillis() - startedAt
-                if (elapsed < MIN_ONLINE_POLL_INTERVAL_MS) {
-                    delay(MIN_ONLINE_POLL_INTERVAL_MS - elapsed)
+                val targetDelay = if (succeeded) {
+                    MIN_ONLINE_POLL_INTERVAL_MS
+                } else {
+                    (1_000L shl (failureCount - 1)).coerceAtMost(MAX_ONLINE_RETRY_DELAY_MS)
+                }
+                if (elapsed < targetDelay) {
+                    delay(targetDelay - elapsed)
                 }
             }
         }
     }
 
-    private suspend fun pollOnlineSnapshot(waitForChange: Boolean = false, version: Int = gameVersion) {
-        val client = onlineClient ?: return
+    private suspend fun pollOnlineSnapshot(
+        waitForChange: Boolean = false,
+        version: Int = gameVersion
+    ): Boolean {
+        val client = onlineClient ?: return false
         val session = _onlineSession.value
-        if (version != gameVersion) return
-        if (session.playerId.isBlank() || session.roomId.isBlank()) return
-        if (onlineMoveInFlight) return
+        if (version != gameVersion) return false
+        if (session.playerId.isBlank() || session.roomId.isBlank()) return false
+        if (onlineMoveInFlight) return true
         val beforeRevision = onlineRevision
         val longPoll = waitForChange && beforeRevision > 0L
 
-        runCatching {
+        val result = runCatching {
             withContext(Dispatchers.IO) {
                 client.snapshot(
                     roomId = session.roomId,
@@ -675,26 +721,33 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     waitMs = if (longPoll) ONLINE_STATE_WAIT_MS else 0
                 )
             }
-        }.onSuccess { snapshot ->
-            if (version != gameVersion) return@onSuccess
-            if (snapshot.revision < onlineRevision) return@onSuccess
-            if (onlineMoveInFlight && snapshot.revision <= onlineRevision) return@onSuccess
-            applyOnlineSnapshot(snapshot)
-            _onlineSession.value = _onlineSession.value.copy(
-                connected = true,
-                connecting = false,
-                playerCount = snapshot.playerCount,
-                pendingAction = snapshot.pendingAction,
-                revision = snapshot.revision,
-                message = snapshot.message.ifBlank { "已连接" }
-            )
-        }.onFailure { error ->
-            if (version != gameVersion) return@onFailure
+        }
+
+        val snapshot = result.getOrElse { error ->
+            if (version != gameVersion) return false
             _onlineSession.value = _onlineSession.value.copy(
                 connected = false,
+                connecting = false,
+                reconnecting = true,
                 message = error.message ?: "连接中断"
             )
+            return false
         }
+
+        if (version != gameVersion) return false
+        if (snapshot.revision < onlineRevision) return true
+        if (onlineMoveInFlight && snapshot.revision <= onlineRevision) return true
+        applyOnlineSnapshot(snapshot)
+        _onlineSession.value = _onlineSession.value.copy(
+            connected = true,
+            connecting = false,
+            reconnecting = false,
+            playerCount = snapshot.playerCount,
+            pendingAction = snapshot.pendingAction,
+            revision = snapshot.revision,
+            message = snapshot.message.ifBlank { "已连接" }
+        )
+        return true
     }
 
     private fun applyOnlineSnapshot(snapshot: OnlineSnapshot) {
@@ -735,7 +788,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         persistActiveGame()
         aiJob?.cancel()
-        runCatching { engine?.close() }
+        engine?.let { activeEngine ->
+            activeEngine.requestStop()
+            ENGINE_CLEANUP_EXECUTOR.execute {
+                runCatching { activeEngine.shutdownNow() }
+            }
+        }
+        engine = null
         onlinePollJob?.cancel()
         super.onCleared()
     }
@@ -743,5 +802,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private companion object {
         const val ONLINE_STATE_WAIT_MS = 15_000
         const val MIN_ONLINE_POLL_INTERVAL_MS = 250L
+        const val MAX_ONLINE_RETRY_DELAY_MS = 15_000L
+        val ENGINE_CLEANUP_EXECUTOR = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "pikafish-cleanup").apply { isDaemon = true }
+        }
     }
 }

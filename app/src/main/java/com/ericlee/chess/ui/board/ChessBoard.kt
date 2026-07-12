@@ -2,6 +2,7 @@ package com.ericlee.chess.ui.board
 
 import android.graphics.Paint
 import android.graphics.Typeface
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,8 +14,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -28,6 +32,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import com.ericlee.chess.model.*
+import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -43,6 +48,7 @@ private val LAST_MOVE_COLOR = Color(0x805CA66B)
 private val CHECK_COLOR = Color(0xB8C31B12)
 private val MARKER_COLOR = Color(0xFF5C2D10)
 private val PIECE_BG = Color(0xFFF6D495)
+private const val BOARD_ALERT_DURATION_MS = 3_000L
 
 @Composable
 fun ChessBoard(
@@ -62,25 +68,30 @@ fun ChessBoard(
     val checkedKing = remember(board.pieces.toList(), currentSide) {
         if (board.isInCheck(currentSide)) board.findKing(currentSide) else null
     }
-    val transition = rememberInfiniteTransition(label = "boardEffects")
-    val pulse by transition.animateFloat(
-        initialValue = 0.86f,
-        targetValue = 1.16f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 760),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-    val ripplePhase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "ripplePhase"
-    )
+    val boardAlert = boardAlertText(status, checkedKing != null)
+    var visibleBoardAlert by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(boardAlert, status, currentSide, lastMove) {
+        visibleBoardAlert = boardAlert
+        if (boardAlert != null) {
+            delay(BOARD_ALERT_DURATION_MS)
+            visibleBoardAlert = null
+        }
+    }
+    val pulse = rememberBoardPulse(enabled = selectedPiece != null || checkedKing != null)
+    val captureMove = lastMove?.takeIf { it.captured != null }
+    val captureAnimation = remember { Animatable(1f) }
+    LaunchedEffect(captureMove) {
+        if (captureMove == null) {
+            captureAnimation.snapTo(1f)
+        } else {
+            captureAnimation.snapTo(0f)
+            captureAnimation.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 1200, easing = LinearEasing)
+            )
+        }
+    }
+    val capturePhase = captureAnimation.value
 
     Canvas(
         modifier = modifier
@@ -115,10 +126,10 @@ fun ChessBoard(
         drawPositionMarkers(offsetX, offsetY, cellW, cellH)
 
         if (lastMove != null) {
-            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, currentSide.opposite(), pulse)
-            if (lastMove.captured != null) {
+            drawMoveEffect(lastMove, offsetX, offsetY, cellW, cellH, isFlipped, currentSide.opposite())
+            if (lastMove.captured != null && capturePhase < 1f) {
                 val center = boardPositionCenter(lastMove.toRow, lastMove.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
-                drawCaptureEffect(center, cellW, ripplePhase)
+                drawCaptureEffect(center, cellW, capturePhase)
             }
         }
 
@@ -172,11 +183,26 @@ fun ChessBoard(
             drawPiece(piece, cx, cy, cellW * 0.43f, isFlipped)
         }
 
-        val alertText = boardAlertText(status, checkedKing != null)
-        if (alertText != null) {
-            drawBoardAlert(alertText, status, cellW)
+        if (visibleBoardAlert != null) {
+            drawBoardAlert(visibleBoardAlert.orEmpty(), status, cellW)
         }
     }
+}
+
+@Composable
+private fun rememberBoardPulse(enabled: Boolean): Float {
+    if (!enabled) return 1f
+    val transition = rememberInfiniteTransition(label = "boardPulse")
+    val pulse by transition.animateFloat(
+        initialValue = 0.86f,
+        targetValue = 1.16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 760),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    return pulse
 }
 
 private fun boardAlertText(status: GameStatus, isCheck: Boolean): String? = when (status) {
@@ -611,8 +637,7 @@ private fun DrawScope.drawMoveEffect(
     cellW: Float,
     cellH: Float,
     isFlipped: Boolean,
-    fallbackSide: Side,
-    pulse: Float
+    fallbackSide: Side
 ) {
     val from = boardPositionCenter(move.fromRow, move.fromCol, offsetX, offsetY, cellW, cellH, isFlipped)
     val to = boardPositionCenter(move.toRow, move.toCol, offsetX, offsetY, cellW, cellH, isFlipped)
@@ -635,9 +660,9 @@ private fun DrawScope.drawMoveEffect(
     drawMoveArrowHead(from, to, glow.copy(alpha = 0.78f), cellW * 0.22f)
 
     drawCircle(color = LAST_MOVE_COLOR.copy(alpha = 0.82f), radius = cellW * 0.52f, center = from)
-    drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.66f * pulse, center = to)
+    drawCircle(color = color.copy(alpha = 0.24f), radius = cellW * 0.66f, center = to)
     drawCircle(color = Color(0xFFE8C277).copy(alpha = 0.72f), radius = cellW * 0.53f, center = to, style = Stroke(width = 5f))
-    drawCircle(color = color, radius = cellW * 0.4f * pulse, center = to, style = Stroke(width = 4.5f))
+    drawCircle(color = color, radius = cellW * 0.4f, center = to, style = Stroke(width = 4.5f))
 
     if (move.captured != null) {
         drawCaptureBurst(to.x, to.y, cellW * 0.43f, CHECK_COLOR, 1f)

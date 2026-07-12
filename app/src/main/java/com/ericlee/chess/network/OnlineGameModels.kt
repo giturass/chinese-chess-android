@@ -84,12 +84,15 @@ data class OnlineSessionState(
     val side: Side? = null,
     val connected: Boolean = false,
     val connecting: Boolean = false,
+    val reconnecting: Boolean = false,
+    val movePending: Boolean = false,
     val playerCount: Int = 0,
     val pendingAction: OnlinePendingAction? = null,
     val revision: Long = 0L,
     val message: String = ""
 ) {
-    val canMove: Boolean get() = connected && side != null && playerCount >= 2
+    val hasJoinedRoom: Boolean get() = roomId.isNotBlank() && playerId.isNotBlank() && side != null
+    val canMove: Boolean get() = connected && !movePending && side != null && playerCount >= 2
 }
 
 private fun Side.displayName(): String = if (this == Side.RED) "红方" else "黑方"

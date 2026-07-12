@@ -92,7 +92,7 @@ fun OnlineGameScreen(
     val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
 
     BackHandler {
-        if (session.connected) {
+        if (session.hasJoinedRoom) {
             confirmExit = true
         } else {
             onBack()
@@ -155,14 +155,15 @@ fun OnlineGameScreen(
             TopAppBar(
                 title = { Text("双人对战 · 联机") },
                 navigationIcon = {
-                    IconButton(onClick = { if (session.connected) confirmExit = true else onBack() }) {
+                    IconButton(onClick = { if (session.hasJoinedRoom) confirmExit = true else onBack() }) {
                         Icon(Icons.Default.ArrowBack, "返回")
                     }
                 },
                 actions = {
-                    if (session.connected) {
+                    if (session.hasJoinedRoom) {
                         FilledTonalButton(
                             onClick = { viewModel.toggleBoardFlipped() },
+                            enabled = session.connected,
                             modifier = Modifier.padding(end = 6.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
@@ -171,6 +172,7 @@ fun OnlineGameScreen(
                         }
                         Button(
                             onClick = { viewModel.resetOnlineGame() },
+                            enabled = session.connected,
                             modifier = Modifier.padding(end = 8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
@@ -188,7 +190,7 @@ fun OnlineGameScreen(
             )
         }
     ) { padding ->
-        if (!session.connected) {
+        if (!session.hasJoinedRoom) {
             OnlineJoinPanel(
                 roomId = roomId,
                 connecting = session.connecting,
@@ -211,7 +213,11 @@ fun OnlineGameScreen(
             )
         } else {
             val playerSide = session.side ?: Side.RED
-            val connectionState = if (session.playerCount < 2) "等待对手" else session.message.ifBlank { "已连接" }
+            val connectionState = when {
+                session.reconnecting -> "正在重连"
+                session.playerCount < 2 -> "等待对手"
+                else -> session.message.ifBlank { "已连接" }
+            }
 
             Box(
                 modifier = Modifier
@@ -251,7 +257,11 @@ fun OnlineGameScreen(
                         statusMessage = statusMessage,
                         side = playerSide,
                         showActions = true,
-                        canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == playerSide,
+                        connectionReady = session.connected && !session.movePending,
+                        canUndo = session.connected &&
+                            !session.movePending &&
+                            state.status == GameStatus.PLAYING &&
+                            state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },
                         onDraw = { viewModel.agreeDraw(playerSide) },
                         onResign = { viewModel.resign(playerSide) },

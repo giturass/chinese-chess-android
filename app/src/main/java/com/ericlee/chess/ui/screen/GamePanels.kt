@@ -163,6 +163,7 @@ fun OnlineControlPanel(
     statusMessage: String,
     side: Side,
     showActions: Boolean,
+    connectionReady: Boolean,
     canUndo: Boolean,
     onUndo: () -> Unit,
     onDraw: () -> Unit,
@@ -179,7 +180,7 @@ fun OnlineControlPanel(
             SideActionRow(
                 side = side,
                 canUndo = canUndo,
-                canAct = state.status == GameStatus.PLAYING,
+                canAct = connectionReady && state.status == GameStatus.PLAYING,
                 onUndo = onUndo,
                 onDraw = onDraw,
                 onResign = onResign

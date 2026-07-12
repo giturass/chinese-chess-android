@@ -93,22 +93,25 @@ class OnlineGameClient(
             }
         }
 
-        if (body != null) {
-            OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-                gson.toJson(body, writer)
+        try {
+            if (body != null) {
+                OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
+                    gson.toJson(body, writer)
+                }
             }
+
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+
+            if (code !in 200..299) {
+                throw IllegalStateException(parseError(text).ifBlank { "服务端返回 $code" })
+            }
+
+            return gson.fromJson(text, responseClass)
+        } finally {
+            connection.disconnect()
         }
-
-        val code = connection.responseCode
-        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-        connection.disconnect()
-
-        if (code !in 200..299) {
-            throw IllegalStateException(parseError(text).ifBlank { "服务端返回 $code" })
-        }
-
-        return gson.fromJson(text, responseClass)
     }
 
     private fun parseError(text: String): String {

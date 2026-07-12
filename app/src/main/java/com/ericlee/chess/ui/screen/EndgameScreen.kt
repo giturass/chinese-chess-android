@@ -35,8 +35,6 @@ fun EndgameScreen(
     viewModel: GameViewModel,
     onBack: () -> Unit
 ) {
-    BackHandler(onBack = onBack)
-
     var selectedPuzzle by remember { mutableStateOf<EndgamePuzzle?>(null) }
     var showHint by remember { mutableStateOf(false) }
     val puzzles = remember { EndgameRepository.getPuzzles() }
@@ -66,6 +64,20 @@ fun EndgameScreen(
     val activeGameStarted by viewModel.activeGameStarted.collectAsState()
     val activeEndgamePuzzleId by viewModel.activeEndgamePuzzleId.collectAsState()
 
+    val leavePuzzle = {
+        showHint = false
+        viewModel.leaveEndgamePuzzle()
+        selectedPuzzle = null
+    }
+
+    BackHandler {
+        if (selectedPuzzle != null) {
+            leavePuzzle()
+        } else {
+            onBack()
+        }
+    }
+
     LaunchedEffect(activeGameStarted, activeEndgamePuzzleId, state.mode) {
         if (activeGameStarted && state.mode == GameMode.ENDGAME) {
             selectedPuzzle = puzzles.firstOrNull { it.id == activeEndgamePuzzleId }
@@ -80,10 +92,7 @@ fun EndgameScreen(
             selectedPiece = selectedPiece,
             legalMoves = legalMoves,
             statusMessage = statusMessage,
-            onBack = {
-                showHint = false
-                selectedPuzzle = null
-            },
+            onBack = leavePuzzle,
             onReset = { viewModel.loadEndgame(puzzle) },
             onUndo = { viewModel.undoMove() },
             onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },

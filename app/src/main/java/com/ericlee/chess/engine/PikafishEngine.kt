@@ -54,6 +54,13 @@ class PikafishEngine(
         shutdownNow()
     }
 
+    fun requestStop() {
+        closed = true
+        outputLines.offer("")
+        runCatching { process?.destroy() }
+        readerThread?.interrupt()
+    }
+
     fun shutdownNow() {
         closed = true
         val currentWriter = writer
@@ -253,13 +260,11 @@ class PikafishEngine(
                 "未找到 Pikafish ARM64 原生引擎"
             }
             val targetDir = File(context.noBackupFilesDir, "pikafish/$ENGINE_VERSION")
-            if (!targetDir.exists()) {
-                targetDir.mkdirs()
+            require(targetDir.exists() || targetDir.mkdirs()) {
+                "无法创建 Pikafish 资源目录"
             }
             val evalFile = File(targetDir, EVAL_FILE)
             copyAsset(context, "engines/pikafish/$EVAL_FILE", evalFile)
-            binary.setReadable(true, false)
-            binary.setExecutable(true, false)
             return InstalledPikafish(targetDir, binary, evalFile)
         }
 
