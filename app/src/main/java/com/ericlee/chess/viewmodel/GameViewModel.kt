@@ -322,14 +322,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun leaveActiveGame() {
-        persistActiveGame()
         cancelAiSearch()
         closeEngineAsync()
+        saveRepository.clear()
         _activeGameStarted.value = false
         _activeEndgamePuzzleId.value = null
         _selectedPiece.value = null
         _legalMoves.value = emptyList()
-        _savedGamePrompt.value = saveRepository.loadSummary()
+        _savedGamePrompt.value = null
     }
 
     fun leaveEndgamePuzzle() {

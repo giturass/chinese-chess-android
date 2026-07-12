@@ -89,6 +89,8 @@ fun OnlineGameScreen(
         ).orEmpty().ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
     }
     var confirmExit by remember { mutableStateOf(false) }
+    var confirmResign by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
     val pendingAction = session.pendingAction?.takeIf { it.target == session.side }
 
     BackHandler {
@@ -149,6 +151,52 @@ fun OnlineGameScreen(
         )
     }
 
+    if (confirmResign) {
+        AlertDialog(
+            onDismissRequest = { confirmResign = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmResign = false
+                        session.side?.let(viewModel::resign)
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmResign = false }) {
+                    Text("取消")
+                }
+            },
+            title = { Text("确认认输？") },
+            text = { Text("确认后己方判负，对方获胜。") }
+        )
+    }
+
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReset = false
+                        viewModel.resetOnlineGame()
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) {
+                    Text("取消")
+                }
+            },
+            title = { Text("确认重置棋局？") },
+            text = { Text("当前棋局和历史记录会被清空。") }
+        )
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -171,7 +219,7 @@ fun OnlineGameScreen(
                             Text("调转")
                         }
                         Button(
-                            onClick = { viewModel.resetOnlineGame() },
+                            onClick = { confirmReset = true },
                             enabled = session.connected,
                             modifier = Modifier.padding(end = 8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
@@ -264,7 +312,7 @@ fun OnlineGameScreen(
                             state.lastMoveSide == playerSide,
                         onUndo = { viewModel.requestOnlineUndo() },
                         onDraw = { viewModel.agreeDraw(playerSide) },
-                        onResign = { viewModel.resign(playerSide) },
+                        onResign = { confirmResign = true },
                         modifier = Modifier
                             .layoutId("panel")
                             .padding(horizontal = 4.dp, vertical = 4.dp)

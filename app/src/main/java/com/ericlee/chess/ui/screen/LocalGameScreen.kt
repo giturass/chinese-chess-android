@@ -89,12 +89,12 @@ fun LocalGameScreen(
                         pendingAction = null
                     }
                 ) {
-                    Text("同意")
+                    Text(action.confirmText())
                 }
             },
             dismissButton = {
                 TextButton(onClick = { pendingAction = null }) {
-                    Text("拒绝")
+                    Text(action.dismissText())
                 }
             },
             title = { Text(action.title()) },
@@ -300,18 +300,23 @@ private data class PendingLocalAction(
     val type: LocalActionType
 ) {
     fun viewerSide(): Side = when (type) {
-        LocalActionType.UNDO, LocalActionType.DRAW, LocalActionType.RESIGN -> requester.opposite()
+        LocalActionType.UNDO, LocalActionType.DRAW -> requester.opposite()
+        LocalActionType.RESIGN -> requester
     }
 
     fun message(): String = when (type) {
         LocalActionType.UNDO -> "${requester.displayName()}请求悔棋，请${viewerSide().displayName()}确认。"
         LocalActionType.DRAW -> "${requester.displayName()}请求求和，请${viewerSide().displayName()}确认。"
-        LocalActionType.RESIGN -> "${requester.displayName()}请求认输，请${viewerSide().displayName()}确认。"
+        LocalActionType.RESIGN -> "确认后${requester.displayName()}判负，对方获胜。"
     }
 
     fun title(): String = when (type) {
         LocalActionType.UNDO -> "对方请求悔棋"
         LocalActionType.DRAW -> "对方请求求和"
-        LocalActionType.RESIGN -> "对方请求认输"
+        LocalActionType.RESIGN -> "确认认输？"
     }
+
+    fun confirmText(): String = if (type == LocalActionType.RESIGN) "确认" else "同意"
+
+    fun dismissText(): String = if (type == LocalActionType.RESIGN) "取消" else "拒绝"
 }

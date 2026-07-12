@@ -113,6 +113,7 @@ fun AiGameScreen(
                                 flipped = state.humanSide == Side.BLACK,
                                 humanSide = state.humanSide
                             )
+                            AiConfirmAction.RESIGN -> viewModel.resign(state.humanSide)
                         }
                         confirmAction = null
                     }
@@ -218,7 +219,7 @@ fun AiGameScreen(
                     onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
                     onUndo = { viewModel.undoMove() },
                     onDraw = { viewModel.agreeDraw(state.humanSide) },
-                    onResign = { viewModel.resign(state.humanSide) }
+                    onResign = { confirmAction = AiConfirmAction.RESIGN }
                 )
             }
         }
@@ -476,7 +477,8 @@ private enum class AiConfirmAction(
     val message: String
 ) {
     FLIP("确认调转先后手？", "会重新开局并互换先后手。AI 先下时将执红先行。"),
-    RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。")
+    RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。"),
+    RESIGN("确认认输？", "确认后本局将判 AI 获胜。")
 }
 
 private data class DifficultyLevel(

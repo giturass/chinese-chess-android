@@ -375,11 +375,6 @@ private fun EndgameProgressHeader(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFFFE4A6)
                 )
-                Text(
-                    text = "红方先行 · 石室残局",
-                    fontSize = 13.sp,
-                    color = Color(0xFFFFF0D4).copy(alpha = 0.72f)
-                )
             }
             Text(
                 text = "$completedCount/$totalCount",

@@ -43,8 +43,6 @@ data class OnlinePendingAction(
         get() = when (type) {
             "undo" -> "对方请求悔棋"
             "draw" -> "对方请求求和"
-            "resign" -> "对方请求认输"
-            "reset" -> "对方请求重置"
             else -> "对方发来请求"
         }
 
@@ -52,8 +50,6 @@ data class OnlinePendingAction(
         get() = when (type) {
             "undo" -> "${requester.displayName()}请求撤回上一步，是否同意？"
             "draw" -> "${requester.displayName()}请求和棋，是否同意？"
-            "resign" -> "${requester.displayName()}请求认输，是否同意？"
-            "reset" -> "${requester.displayName()}请求重置棋局，是否同意？"
             else -> "${requester.displayName()}发来请求，是否同意？"
         }
 }

@@ -124,7 +124,7 @@ fun HomeScreen(
 
             MenuButton(
                 text = "人机对战",
-                subtitle = "与AI切磋",
+                subtitle = "与AI对弈",
                 onClick = onStartAiGame
             )
 
