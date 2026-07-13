@@ -203,9 +203,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         aiJob?.cancel()
         aiJob = viewModelScope.launch {
-            val move = withContext(Dispatchers.Default) {
-                runCatching { activeEngine.findBestMove(boardSnapshot, depth, positionCounts) }.getOrNull()
+            val searchResult = withContext(Dispatchers.IO) {
+                runCatching { activeEngine.findBestMove(boardSnapshot, depth, positionCounts) }
             }
+            val move = searchResult.getOrNull()
 
             if (version != gameVersion) return@launch
 
@@ -215,7 +216,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 updateStatusMessage(newState)
                 persistActiveGame()
             } else if (_gameState.value.status == GameStatus.PLAYING) {
-                _statusMessage.value = "AI 引擎暂不可用"
+                _statusMessage.value = searchResult.exceptionOrNull()?.message ?: "AI 引擎暂不可用"
             }
             _isAiThinking.value = false
         }
@@ -234,9 +235,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         aiJob?.cancel()
         aiJob = viewModelScope.launch {
-            val move = withContext(Dispatchers.Default) {
-                runCatching { activeEngine.findBestMove(boardSnapshot, 2, positionCounts) }.getOrNull()
+            val searchResult = withContext(Dispatchers.IO) {
+                runCatching { activeEngine.findBestMove(boardSnapshot, 2, positionCounts) }
             }
+            val move = searchResult.getOrNull()
 
             if (version != gameVersion) return@launch
 
@@ -246,7 +248,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 updateStatusMessage(newState)
                 persistActiveGame()
             } else if (_gameState.value.status == GameStatus.PLAYING) {
-                _statusMessage.value = "AI 引擎暂不可用"
+                _statusMessage.value = searchResult.exceptionOrNull()?.message ?: "AI 引擎暂不可用"
             }
             _isAiThinking.value = false
         }

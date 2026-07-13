@@ -23,12 +23,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ericlee.chess.audio.GameAudio
 import com.ericlee.chess.data.SavedGameSummary
+import com.ericlee.chess.engine.PikafishEngine
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.ui.screen.AiGameScreen
 import com.ericlee.chess.ui.screen.AppSplashScreen
@@ -39,11 +41,17 @@ import com.ericlee.chess.ui.screen.OnlineGameScreen
 import com.ericlee.chess.ui.screen.TwoPlayerScreen
 import com.ericlee.chess.ui.theme.ChineseChessTheme
 import com.ericlee.chess.viewmodel.GameViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableImmersiveMode()
+        lifecycleScope.launch(Dispatchers.IO) {
+            PikafishEngine.prefetchEvalFile(applicationContext) { !isActive }
+        }
         setContent {
             ChineseChessTheme {
                 var showSplash by remember { mutableStateOf(true) }

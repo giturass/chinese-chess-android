@@ -11,6 +11,9 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.IOException
 import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -110,7 +113,7 @@ class PikafishEngine(
 
         closeDeadProcess()
         if (closed) return false
-        val installed = PikafishInstaller.install(context)
+        val installed = PikafishInstaller.install(context) { closed }
         if (closed) return false
         outputLines.clear()
         val started = ProcessBuilder(installed.binary.absolutePath)
@@ -251,7 +254,12 @@ class PikafishEngine(
     )
 
     private object PikafishInstaller {
-        fun install(context: Context): InstalledPikafish {
+        private val installLock = Any()
+
+        fun install(
+            context: Context,
+            isCancelled: () -> Boolean
+        ): InstalledPikafish = synchronized(installLock) {
             require(Build.SUPPORTED_64_BIT_ABIS.contains("arm64-v8a")) {
                 "当前设备不支持 ARM64 Pikafish"
             }
@@ -259,30 +267,99 @@ class PikafishEngine(
             require(binary.exists()) {
                 "未找到 Pikafish ARM64 原生引擎"
             }
-            val targetDir = File(context.noBackupFilesDir, "pikafish/$ENGINE_VERSION")
+            val targetDir = evalDirectory(context)
             require(targetDir.exists() || targetDir.mkdirs()) {
                 "无法创建 Pikafish 资源目录"
             }
             val evalFile = File(targetDir, EVAL_FILE)
-            copyAsset(context, "engines/pikafish/$EVAL_FILE", evalFile)
-            return InstalledPikafish(targetDir, binary, evalFile)
-        }
-
-        private fun copyAsset(context: Context, assetPath: String, target: File) {
-            if (target.exists() && target.length() > 0L) return
-            val tmp = File(target.parentFile, "${target.name}.tmp")
-            context.assets.open(assetPath).use { input ->
-                tmp.outputStream().use { output ->
-                    input.copyTo(output)
+            val validationFile = File(targetDir, "$EVAL_FILE.sha256")
+            val alreadyValidated = evalFile.length() == EVAL_FILE_SIZE &&
+                validationFile.readTextOrEmpty() == EVAL_FILE_SHA256
+            if (!alreadyValidated) {
+                if (evalFile.length() == EVAL_FILE_SIZE && evalFile.sha256() == EVAL_FILE_SHA256) {
+                    validationFile.writeText(EVAL_FILE_SHA256)
+                } else {
+                    downloadEvalFile(evalFile, validationFile, isCancelled)
                 }
             }
-            if (target.exists()) {
-                target.delete()
-            }
-            require(tmp.renameTo(target)) {
-                "无法安装 Pikafish 资源：${target.name}"
+            InstalledPikafish(targetDir, binary, evalFile)
+        }
+
+        private fun evalDirectory(context: Context): File =
+            File(context.noBackupFilesDir, "pikafish/$ENGINE_VERSION")
+
+        private fun downloadEvalFile(
+            target: File,
+            validationFile: File,
+            isCancelled: () -> Boolean
+        ) {
+            val tmp = File(target.parentFile, "${target.name}.tmp")
+            target.delete()
+            validationFile.delete()
+            tmp.delete()
+            try {
+                val connection = (URL(EVAL_FILE_URL).openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = true
+                    connectTimeout = DOWNLOAD_CONNECT_TIMEOUT_MS
+                    readTimeout = DOWNLOAD_READ_TIMEOUT_MS
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/octet-stream")
+                }
+                try {
+                    val responseCode = connection.responseCode
+                    if (responseCode !in 200..299) {
+                        throw IOException("NNUE 下载失败：HTTP $responseCode")
+                    }
+                    val expectedLength = connection.contentLengthLong
+                    if (expectedLength > 0L && expectedLength != EVAL_FILE_SIZE) {
+                        throw IOException("NNUE 文件大小不匹配")
+                    }
+                    connection.inputStream.buffered().use { input ->
+                        tmp.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (true) {
+                                if (isCancelled()) throw IOException("NNUE 下载已取消")
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+                if (tmp.length() != EVAL_FILE_SIZE || tmp.sha256() != EVAL_FILE_SHA256) {
+                    throw IOException("NNUE 文件校验失败")
+                }
+                require(tmp.renameTo(target)) {
+                    "无法安装 Pikafish 资源：${target.name}"
+                }
+                validationFile.writeText(EVAL_FILE_SHA256)
+            } catch (error: Throwable) {
+                tmp.delete()
+                throw IllegalStateException(
+                    if (isCancelled()) "NNUE 下载已取消" else "首次使用需下载 AI 数据，请检查网络后重试",
+                    error
+                )
             }
         }
+
+        private fun File.sha256(): String {
+            if (!isFile) return ""
+            val digest = MessageDigest.getInstance("SHA-256")
+            inputStream().buffered().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+        }
+
+        private fun File.readTextOrEmpty(): String =
+            runCatching { readText().trim() }.getOrDefault("")
     }
 
     private object PikafishNotation {
@@ -344,11 +421,24 @@ class PikafishEngine(
         private fun Int?.orInvalid(): Int = this ?: -100
     }
 
-    private companion object {
-        const val ENGINE_VERSION = "2026-01-02"
-        const val PACKAGED_BINARY = "libpikafish.so"
-        const val EVAL_FILE = "pikafish.nnue"
-        const val INIT_TIMEOUT_MS = 12_000L
-        const val SEARCH_TIMEOUT_MS = 20_000L
+    companion object {
+        fun prefetchEvalFile(context: Context, isCancelled: () -> Boolean = { false }) {
+            runCatching {
+                PikafishInstaller.install(context.applicationContext, isCancelled)
+            }
+        }
+
+        private const val ENGINE_VERSION = "2026-01-02"
+        private const val PACKAGED_BINARY = "libpikafish.so"
+        private const val EVAL_FILE = "pikafish.nnue"
+        private const val EVAL_FILE_URL =
+            "https://gitfly.qzz.io/https://github.com/giturass/Pikafish/releases/download/1.0/pikafish.nnue"
+        private const val EVAL_FILE_SIZE = 53_212_941L
+        private const val EVAL_FILE_SHA256 =
+            "c4026370d7516d9b0f668447f9ca1931241538bdc689cde6fec6a991ac4d5f77"
+        private const val DOWNLOAD_CONNECT_TIMEOUT_MS = 15_000
+        private const val DOWNLOAD_READ_TIMEOUT_MS = 120_000
+        private const val INIT_TIMEOUT_MS = 12_000L
+        private const val SEARCH_TIMEOUT_MS = 20_000L
     }
 }

@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ButtonDefaults
@@ -133,8 +130,6 @@ fun AiControlPanel(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
                 Text("悔棋", fontSize = 13.sp)
             }
             OutlinedButton(
@@ -218,8 +213,6 @@ fun EndgameControlPanel(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text("悔棋", fontSize = 13.sp)
                 }
                 OutlinedButton(
@@ -411,8 +404,6 @@ private fun SideActionRow(
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
-            Icon(Icons.Default.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
             Text("悔棋", fontSize = 13.sp)
         }
         OutlinedButton(
