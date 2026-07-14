@@ -20,8 +20,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -91,8 +89,7 @@ fun OnlineGameScreen(
             OnlineServerConfig.DEFAULT_SERVER_URL
         ).orEmpty().ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
     }
-    var confirmResign by remember { mutableStateOf(false) }
-    var confirmReset by remember { mutableStateOf(false) }
+    var confirmNewGame by remember { mutableStateOf(false) }
     var notificationPlayerId by rememberSaveable { mutableStateOf("") }
     var lastSeenReceiptId by rememberSaveable { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,28 +131,6 @@ fun OnlineGameScreen(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.Default.ArrowBack, "返回")
-                        }
-                    },
-                    actions = {
-                        if (session.hasJoinedRoom) {
-                            FilledTonalButton(
-                                onClick = { viewModel.toggleBoardFlipped() },
-                                enabled = session.connected,
-                                modifier = Modifier.padding(end = 6.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.SwapVert, contentDescription = null)
-                                Text("调转")
-                            }
-                            Button(
-                                onClick = { confirmReset = true },
-                                enabled = session.connected,
-                                modifier = Modifier.padding(end = 8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null)
-                                Text("重置")
-                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -234,14 +209,14 @@ fun OnlineGameScreen(
                                 statusMessage = statusMessage,
                                 side = playerSide,
                                 showActions = true,
-                                connectionReady = session.connected && !session.movePending,
                                 canUndo = session.connected &&
                                     !session.movePending &&
                                     state.status == GameStatus.PLAYING &&
                                     state.lastMoveSide == playerSide,
+                                canNewGame = session.connected && !session.movePending,
                                 onUndo = { viewModel.requestOnlineUndo() },
-                                onDraw = { viewModel.agreeDraw(playerSide) },
-                                onResign = { confirmResign = true },
+                                onHint = {},
+                                onNewGame = { confirmNewGame = true },
                                 modifier = Modifier
                                     .layoutId("panel")
                                     .padding(horizontal = 4.dp, vertical = 4.dp)
@@ -272,36 +247,17 @@ fun OnlineGameScreen(
                 }
             )
 
-            confirmResign -> InAppDialog(
-                onDismissRequest = { confirmResign = false },
-                title = { Text("确认认输？") },
-                content = { Text("确认后己方判负，对方获胜。") },
-                buttons = {
-                    TextButton(onClick = { confirmResign = false }) {
-                        Text("取消")
-                    }
-                    TextButton(
-                        onClick = {
-                            confirmResign = false
-                            session.side?.let(viewModel::resign)
-                        }
-                    ) {
-                        Text("确认")
-                    }
-                }
-            )
-
-            confirmReset -> InAppDialog(
-                onDismissRequest = { confirmReset = false },
-                title = { Text("确认重置棋局？") },
+            confirmNewGame -> InAppDialog(
+                onDismissRequest = { confirmNewGame = false },
+                title = { Text("确认开始新局？") },
                 content = { Text("当前棋局和历史记录会被清空。") },
                 buttons = {
-                    TextButton(onClick = { confirmReset = false }) {
+                    TextButton(onClick = { confirmNewGame = false }) {
                         Text("取消")
                     }
                     TextButton(
                         onClick = {
-                            confirmReset = false
+                            confirmNewGame = false
                             viewModel.resetOnlineGame()
                         }
                     ) {

@@ -27,7 +27,6 @@ import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
-import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -38,7 +37,6 @@ fun EndgameScreen(
     onBack: () -> Unit
 ) {
     var selectedPuzzle by remember { mutableStateOf<EndgamePuzzle?>(null) }
-    var showHint by remember { mutableStateOf(false) }
     val puzzles = remember { EndgameRepository.getPuzzles() }
     val context = LocalContext.current
     val progressPrefs = remember {
@@ -67,7 +65,6 @@ fun EndgameScreen(
     val activeEndgamePuzzleId by viewModel.activeEndgamePuzzleId.collectAsState()
 
     val leavePuzzle = {
-        showHint = false
         viewModel.leaveEndgamePuzzle()
         selectedPuzzle = null
     }
@@ -96,10 +93,10 @@ fun EndgameScreen(
                 legalMoves = legalMoves,
                 statusMessage = statusMessage,
                 onBack = leavePuzzle,
-                onReset = { viewModel.loadEndgame(puzzle) },
+                onNewGame = { viewModel.loadEndgame(puzzle) },
                 onUndo = { viewModel.undoMove() },
                 onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
-                onShowHint = { showHint = true },
+                onHint = { viewModel.hintMove() },
                 onSolved = { solvedId ->
                     if (solvedId !in completedIds) {
                         val updated = completedIds + solvedId
@@ -170,7 +167,6 @@ fun EndgameScreen(
                                 puzzle = puzzle,
                                 completed = puzzle.id in completedIds,
                                 onClick = {
-                                    showHint = false
                                     selectedPuzzle = puzzle
                                     viewModel.loadEndgame(puzzle)
                                 }
@@ -181,21 +177,6 @@ fun EndgameScreen(
             }
         }
 
-        if (puzzle != null && showHint) {
-            InAppDialog(
-                onDismissRequest = { showHint = false },
-                title = { Text("提示") },
-                content = { Text(puzzle.hint) },
-                buttons = {
-                    TextButton(
-                        onClick = { showHint = false },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2F251C))
-                    ) {
-                        Text("知道了")
-                    }
-                }
-            )
-        }
     }
 }
 
@@ -208,10 +189,10 @@ private fun GameContent(
     legalMoves: List<com.ericlee.chess.model.Move>,
     statusMessage: String,
     onBack: () -> Unit,
-    onReset: () -> Unit,
+    onNewGame: () -> Unit,
     onUndo: () -> Unit,
     onPositionClick: (Int, Int) -> Unit,
-    onShowHint: () -> Unit,
+    onHint: () -> Unit,
     onSolved: (Int) -> Unit
 ) {
     val topSide = if (state.isFlipped) Side.RED else Side.BLACK
@@ -271,8 +252,8 @@ private fun GameContent(
                         side = bottomSide,
                         showActions = true,
                         onUndo = onUndo,
-                        onHint = onShowHint,
-                        onReset = onReset,
+                        onHint = onHint,
+                        onNewGame = onNewGame,
                         modifier = Modifier
                             .layoutId("panel")
                             .padding(horizontal = 4.dp, vertical = 4.dp)

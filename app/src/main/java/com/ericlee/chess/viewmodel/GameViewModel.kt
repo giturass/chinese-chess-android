@@ -222,6 +222,74 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Ask the engine for the best move for the side controlled by the user,
+     * then apply that move immediately. In endgame mode this is always red;
+     * in AI mode it is the configured human side.
+     */
+    fun hintMove() {
+        val state = _gameState.value
+        val targetSide = when (state.mode) {
+            GameMode.AI -> state.humanSide
+            GameMode.ENDGAME -> Side.RED
+            else -> return
+        }
+        if (state.status != GameStatus.PLAYING || state.currentSide != targetSide) return
+        if (_isAiThinking.value) return
+
+        val activeEngine = engine ?: run {
+            _statusMessage.value = "AI 引擎暂不可用"
+            return
+        }
+        _isAiThinking.value = true
+        val boardSnapshot = state.board.copy()
+        val depth = if (state.mode == GameMode.ENDGAME) 2 else state.aiDifficulty
+        val positionCounts = state.positionOccurrences()
+        val version = gameVersion
+
+        aiJob?.cancel()
+        aiJob = viewModelScope.launch {
+            val searchResult = withContext(Dispatchers.IO) {
+                runCatching {
+                    activeEngine.findBestMove(
+                        board = boardSnapshot,
+                        depth = depth,
+                        positionCounts = positionCounts,
+                        side = targetSide
+                    )
+                }
+            }
+            if (version != gameVersion) return@launch
+
+            val move = searchResult.getOrNull()
+            if (move != null && _gameState.value.status == GameStatus.PLAYING &&
+                _gameState.value.currentSide == targetSide
+            ) {
+                val newState = _gameState.value.makeMove(move)
+                _gameState.value = newState
+                updateStatusMessage(newState)
+                persistActiveGame()
+                if (newState.status == GameStatus.PLAYING &&
+                    newState.mode == GameMode.AI &&
+                    newState.currentSide != newState.humanSide
+                ) {
+                    triggerAiMove()
+                    return@launch
+                }
+                if (newState.status == GameStatus.PLAYING &&
+                    newState.mode == GameMode.ENDGAME &&
+                    newState.currentSide == Side.BLACK
+                ) {
+                    triggerEndgameDefense()
+                    return@launch
+                }
+            } else if (_gameState.value.status == GameStatus.PLAYING) {
+                _statusMessage.value = searchResult.exceptionOrNull()?.message ?: "暂时无法获取最佳走法"
+            }
+            _isAiThinking.value = false
+        }
+    }
+
     private fun triggerEndgameDefense() {
         val activeEngine = engine ?: run {
             _statusMessage.value = "AI 引擎暂不可用"

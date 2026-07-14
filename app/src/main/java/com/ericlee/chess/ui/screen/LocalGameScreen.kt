@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -83,26 +81,6 @@ fun LocalGameScreen(
                             Icon(Icons.Default.ArrowBack, "返回")
                         }
                     },
-                    actions = {
-                        if (gameStarted) {
-                            FilledTonalButton(
-                                onClick = { confirmAction = BoardConfirmAction.FLIP },
-                                modifier = Modifier.padding(end = 6.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.SwapVert, contentDescription = null)
-                                Text("调转")
-                            }
-                            Button(
-                                onClick = { confirmAction = BoardConfirmAction.RESET },
-                                modifier = Modifier.padding(end = 8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null)
-                                Text("重置")
-                            }
-                        }
-                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color(0xAA2D1A0A),
                         titleContentColor = Color(0xFFFFE4A6),
@@ -141,8 +119,8 @@ fun LocalGameScreen(
                             state = state,
                             statusMessage = statusMessage,
                             onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                            onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                            onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                            onHint = {},
+                            onNewGame = { confirmAction = BoardConfirmAction.NEW_GAME },
                             modifier = Modifier
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
                                 .graphicsLayer(rotationZ = 180f)
@@ -168,8 +146,8 @@ fun LocalGameScreen(
                             state = state,
                             statusMessage = statusMessage,
                             onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                            onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                            onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                            onHint = {},
+                            onNewGame = { confirmAction = BoardConfirmAction.NEW_GAME },
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                         )
                     }
@@ -192,8 +170,6 @@ fun LocalGameScreen(
                         onClick = {
                             when (action.type) {
                                 LocalActionType.UNDO -> viewModel.undoMove(action.requester)
-                                LocalActionType.DRAW -> viewModel.agreeDraw(action.requester)
-                                LocalActionType.RESIGN -> viewModel.resign(action.requester)
                             }
                             pendingAction = null
                         }
@@ -216,8 +192,7 @@ fun LocalGameScreen(
                     TextButton(
                         onClick = {
                             when (action) {
-                                BoardConfirmAction.FLIP -> viewModel.toggleBoardFlipped()
-                                BoardConfirmAction.RESET -> viewModel.startGame(
+                                BoardConfirmAction.NEW_GAME -> viewModel.startGame(
                                     mode = GameMode.LOCAL,
                                     flipped = state.isFlipped
                                 )
@@ -279,17 +254,14 @@ private fun LocalSideSelector(
 }
 
 private enum class LocalActionType {
-    UNDO,
-    DRAW,
-    RESIGN
+    UNDO
 }
 
 private enum class BoardConfirmAction(
     val title: String,
     val message: String
 ) {
-    FLIP("确认调转红黑？", "棋盘方向会立即调转，当前棋局不会重置。"),
-    RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。")
+    NEW_GAME("确认开始新局？", "当前棋局和历史记录会被清空。")
 }
 
 private data class PendingLocalAction(
@@ -297,23 +269,18 @@ private data class PendingLocalAction(
     val type: LocalActionType
 ) {
     fun viewerSide(): Side = when (type) {
-        LocalActionType.UNDO, LocalActionType.DRAW -> requester.opposite()
-        LocalActionType.RESIGN -> requester
+        LocalActionType.UNDO -> requester.opposite()
     }
 
     fun message(): String = when (type) {
         LocalActionType.UNDO -> "${requester.displayName()}请求悔棋，请${viewerSide().displayName()}确认。"
-        LocalActionType.DRAW -> "${requester.displayName()}请求求和，请${viewerSide().displayName()}确认。"
-        LocalActionType.RESIGN -> "确认后${requester.displayName()}判负，对方获胜。"
     }
 
     fun title(): String = when (type) {
         LocalActionType.UNDO -> "对方请求悔棋"
-        LocalActionType.DRAW -> "对方请求求和"
-        LocalActionType.RESIGN -> "确认认输？"
     }
 
-    fun confirmText(): String = if (type == LocalActionType.RESIGN) "确认" else "同意"
+    fun confirmText(): String = "同意"
 
-    fun dismissText(): String = if (type == LocalActionType.RESIGN) "取消" else "拒绝"
+    fun dismissText(): String = "拒绝"
 }

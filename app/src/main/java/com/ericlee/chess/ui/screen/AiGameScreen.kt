@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -100,28 +98,6 @@ fun AiGameScreen(
                             Icon(Icons.Default.ArrowBack, "返回")
                         }
                     },
-                    actions = {
-                        if (gameStarted) {
-                            FilledTonalButton(
-                                onClick = { confirmAction = AiConfirmAction.FLIP },
-                                enabled = !isAiThinking,
-                                modifier = Modifier.padding(end = 6.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.SwapVert, contentDescription = null)
-                                Text("调转")
-                            }
-                            Button(
-                                onClick = { confirmAction = AiConfirmAction.RESET },
-                                enabled = !isAiThinking,
-                                modifier = Modifier.padding(end = 8.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null)
-                                Text("重置")
-                            }
-                        }
-                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color(0xAA2D1A0A),
                         titleContentColor = Color(0xFFFFE4A6),
@@ -177,8 +153,8 @@ fun AiGameScreen(
                         isAiThinking = isAiThinking,
                         onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
                         onUndo = { confirmAction = AiConfirmAction.UNDO },
-                        onDraw = { confirmAction = AiConfirmAction.DRAW },
-                        onResign = { confirmAction = AiConfirmAction.RESIGN }
+                        onHint = { viewModel.hintMove() },
+                        onNewGame = { confirmAction = AiConfirmAction.NEW_GAME }
                     )
                 }
             }
@@ -195,25 +171,13 @@ fun AiGameScreen(
                     }
                     TextButton(onClick = {
                     when (action) {
-                        AiConfirmAction.FLIP -> {
-                            val nextHumanSide = state.humanSide.opposite()
-                            difficulty = state.aiDifficulty
-                            viewModel.startGame(
-                                mode = GameMode.AI,
-                                difficulty = state.aiDifficulty,
-                                flipped = nextHumanSide == Side.BLACK,
-                                humanSide = nextHumanSide
-                            )
-                        }
-                        AiConfirmAction.RESET -> viewModel.startGame(
+                        AiConfirmAction.NEW_GAME -> viewModel.startGame(
                             mode = GameMode.AI,
                             difficulty = difficulty,
                             flipped = state.humanSide == Side.BLACK,
                             humanSide = state.humanSide
                         )
                         AiConfirmAction.UNDO -> viewModel.undoMove()
-                        AiConfirmAction.DRAW -> viewModel.agreeDraw(state.humanSide)
-                        AiConfirmAction.RESIGN -> viewModel.resign(state.humanSide)
                     }
                     confirmAction = null
                     }) {
@@ -234,8 +198,8 @@ private fun AiGameContent(
     isAiThinking: Boolean,
     onPositionClick: (Int, Int) -> Unit,
     onUndo: () -> Unit,
-    onDraw: () -> Unit,
-    onResign: () -> Unit
+    onHint: () -> Unit,
+    onNewGame: () -> Unit
 ) {
     Layout(
         modifier = Modifier
@@ -262,8 +226,8 @@ private fun AiGameContent(
                 statusMessage = statusMessage,
                 isAiThinking = isAiThinking,
                 onUndo = onUndo,
-                onDraw = onDraw,
-                onResign = onResign,
+                onHint = onHint,
+                onNewGame = onNewGame,
                 modifier = Modifier
                     .layoutId("panel")
                     .padding(horizontal = 4.dp, vertical = 4.dp)
@@ -475,11 +439,8 @@ private enum class AiConfirmAction(
     val title: String,
     val message: String
 ) {
-    FLIP("确认调转先后手？", "会重新开局并互换先后手。AI 先下时将执红先行。"),
-    RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。"),
-    UNDO("确认悔棋？", "将撤回你和 AI 的最近一轮走棋。"),
-    DRAW("确认求和？", "确认后本局将立即判为和棋。"),
-    RESIGN("确认认输？", "确认后本局将判 AI 获胜。")
+    NEW_GAME("确认开始新局？", "当前棋局和历史记录会被清空。"),
+    UNDO("确认悔棋？", "将撤回你和 AI 的最近一轮走棋。")
 }
 
 private data class DifficultyLevel(

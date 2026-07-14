@@ -45,8 +45,8 @@ fun LocalControlPanel(
     state: GameState,
     statusMessage: String,
     onUndo: (Side) -> Unit,
-    onDraw: (Side) -> Unit,
-    onResign: (Side) -> Unit,
+    onHint: (Side) -> Unit,
+    onNewGame: (Side) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameInfoPanel(
@@ -58,18 +58,18 @@ fun LocalControlPanel(
         SideActionRow(
             side = Side.RED,
             canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == Side.RED,
-            canAct = state.status == GameStatus.PLAYING,
+            canNewGame = true,
             onUndo = { onUndo(Side.RED) },
-            onDraw = { onDraw(Side.RED) },
-            onResign = { onResign(Side.RED) }
+            onHint = { onHint(Side.RED) },
+            onNewGame = { onNewGame(Side.RED) }
         )
         SideActionRow(
             side = Side.BLACK,
             canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == Side.BLACK,
-            canAct = state.status == GameStatus.PLAYING,
+            canNewGame = true,
             onUndo = { onUndo(Side.BLACK) },
-            onDraw = { onDraw(Side.BLACK) },
-            onResign = { onResign(Side.BLACK) }
+            onHint = { onHint(Side.BLACK) },
+            onNewGame = { onNewGame(Side.BLACK) }
         )
     }
 }
@@ -80,8 +80,8 @@ fun PlayerControlPanel(
     state: GameState,
     statusMessage: String,
     onUndo: (Side) -> Unit,
-    onDraw: (Side) -> Unit,
-    onResign: (Side) -> Unit,
+    onHint: (Side) -> Unit,
+    onNewGame: (Side) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameInfoPanel(
@@ -93,10 +93,10 @@ fun PlayerControlPanel(
         SideActionRow(
             side = side,
             canUndo = state.status == GameStatus.PLAYING && state.lastMoveSide == side,
-            canAct = state.status == GameStatus.PLAYING,
+            canNewGame = true,
             onUndo = { onUndo(side) },
-            onDraw = { onDraw(side) },
-            onResign = { onResign(side) }
+            onHint = { onHint(side) },
+            onNewGame = { onNewGame(side) }
         )
     }
 }
@@ -107,8 +107,8 @@ fun AiControlPanel(
     statusMessage: String,
     isAiThinking: Boolean,
     onUndo: () -> Unit,
-    onDraw: () -> Unit,
-    onResign: () -> Unit,
+    onHint: () -> Unit,
+    onNewGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameInfoPanel(
@@ -133,20 +133,22 @@ fun AiControlPanel(
                 Text("悔棋", fontSize = 13.sp)
             }
             OutlinedButton(
-                onClick = onDraw,
-                enabled = state.status == GameStatus.PLAYING && !isAiThinking,
+                onClick = onHint,
+                enabled = state.status == GameStatus.PLAYING &&
+                    state.currentSide == state.humanSide &&
+                    !isAiThinking,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("求和", fontSize = 13.sp)
+                Text("提示", fontSize = 13.sp)
             }
             OutlinedButton(
-                onClick = onResign,
-                enabled = state.status == GameStatus.PLAYING && !isAiThinking,
+                onClick = onNewGame,
+                enabled = !isAiThinking,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Text("认输", fontSize = 13.sp)
+                Text("新局", fontSize = 13.sp)
             }
         }
     }
@@ -158,11 +160,11 @@ fun OnlineControlPanel(
     statusMessage: String,
     side: Side,
     showActions: Boolean,
-    connectionReady: Boolean,
     canUndo: Boolean,
+    canNewGame: Boolean,
     onUndo: () -> Unit,
-    onDraw: () -> Unit,
-    onResign: () -> Unit,
+    onHint: () -> Unit,
+    onNewGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameInfoPanel(
@@ -175,10 +177,10 @@ fun OnlineControlPanel(
             SideActionRow(
                 side = side,
                 canUndo = canUndo,
-                canAct = connectionReady && state.status == GameStatus.PLAYING,
+                canNewGame = canNewGame,
                 onUndo = onUndo,
-                onDraw = onDraw,
-                onResign = onResign
+                onHint = onHint,
+                onNewGame = onNewGame
             )
         }
     }
@@ -192,7 +194,7 @@ fun EndgameControlPanel(
     showActions: Boolean,
     onUndo: () -> Unit,
     onHint: () -> Unit,
-    onReset: () -> Unit,
+    onNewGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     GameInfoPanel(
@@ -217,18 +219,19 @@ fun EndgameControlPanel(
                 }
                 OutlinedButton(
                     onClick = onHint,
-                    enabled = state.status == GameStatus.PLAYING,
+                    enabled = state.status == GameStatus.PLAYING && state.currentSide == side,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                 ) {
                     Text("提示", fontSize = 13.sp)
                 }
                 OutlinedButton(
-                    onClick = onReset,
+                    onClick = onNewGame,
+                    enabled = true,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    Text("重置", fontSize = 13.sp)
+                    Text("新局", fontSize = 13.sp)
                 }
             }
         }
@@ -379,10 +382,10 @@ private fun GameInfoPanel(
 private fun SideActionRow(
     side: Side,
     canUndo: Boolean,
-    canAct: Boolean,
+    canNewGame: Boolean,
     onUndo: () -> Unit,
-    onDraw: () -> Unit,
-    onResign: () -> Unit
+    onHint: () -> Unit,
+    onNewGame: () -> Unit
 ) {
     val contentColor = if (side == Side.RED) Color(0xFFB32318) else Color(0xFF111111)
     Row(
@@ -407,22 +410,22 @@ private fun SideActionRow(
             Text("悔棋", fontSize = 13.sp)
         }
         OutlinedButton(
-            onClick = onDraw,
-            enabled = canAct,
+            onClick = onHint,
+            enabled = false,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
-            Text("求和", fontSize = 13.sp)
+            Text("提示", fontSize = 13.sp)
         }
         OutlinedButton(
-            onClick = onResign,
-            enabled = canAct,
+            onClick = onNewGame,
+            enabled = canNewGame,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = contentColor)
         ) {
-            Text("认输", fontSize = 13.sp)
+            Text("新局", fontSize = 13.sp)
         }
     }
 }

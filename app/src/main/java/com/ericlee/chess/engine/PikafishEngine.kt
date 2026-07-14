@@ -32,20 +32,21 @@ class PikafishEngine(
     fun findBestMove(
         board: Board,
         depth: Int,
-        positionCounts: Map<String, Int> = emptyMap()
+        positionCounts: Map<String, Int> = emptyMap(),
+        side: Side = aiSide
     ): Move? = synchronized(lock) {
         if (closed) return@synchronized null
-        val legalMoves = board.getAllLegalMoves(aiSide)
+        val legalMoves = board.getAllLegalMoves(side)
         if (legalMoves.isEmpty()) return@synchronized null
 
-        val counts = positionCounts.withCurrentPosition(board, aiSide)
+        val counts = positionCounts.withCurrentPosition(board, side)
         val safeMoves = legalMoves.filterNot { move ->
-            wouldCauseLongCheckLoss(board, move, aiSide, counts)
+            wouldCauseLongCheckLoss(board, move, side, counts)
         }
         val candidateMoves = safeMoves.ifEmpty { legalMoves }
 
         if (!ensureStarted()) return@synchronized null
-        val bestMove = search(board, depth, candidateMoves)
+        val bestMove = search(board, depth, candidateMoves, side)
         if (bestMove != null && candidateMoves.any { it.sameSquares(bestMove) }) {
             bestMove
         } else {
@@ -92,10 +93,10 @@ class PikafishEngine(
 
     fun getSearchInfo(): String = lastInfo
 
-    private fun search(board: Board, depth: Int, searchMoves: List<Move>): Move? {
+    private fun search(board: Board, depth: Int, searchMoves: List<Move>, side: Side): Move? {
         if (closed) return null
         clearOutput()
-        send("position fen ${PikafishNotation.toFen(board, aiSide)}")
+        send("position fen ${PikafishNotation.toFen(board, side)}")
         val moveList = searchMoves.joinToString(separator = " ") { PikafishNotation.toUci(it) }
         send("go depth ${engineDepth(depth)} searchmoves $moveList")
 
