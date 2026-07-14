@@ -21,7 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -61,6 +61,7 @@ import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.network.OnlineServerConfig
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 import kotlin.random.Random
@@ -123,197 +124,191 @@ fun OnlineGameScreen(
         }
     }
 
-    if (pendingAction != null) {
-        AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.respondOnlineRequest(accepted = true) }
-                ) {
-                    Text("同意")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { viewModel.respondOnlineRequest(accepted = false) }
-                ) {
-                    Text("拒绝")
-                }
-            },
-            title = { Text(pendingAction.title) },
-            text = { Text(pendingAction.message) }
-        )
-    }
-
-    if (confirmResign) {
-        AlertDialog(
-            onDismissRequest = { confirmResign = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmResign = false
-                        session.side?.let(viewModel::resign)
-                    }
-                ) {
-                    Text("确认")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmResign = false }) {
-                    Text("取消")
-                }
-            },
-            title = { Text("确认认输？") },
-            text = { Text("确认后己方判负，对方获胜。") }
-        )
-    }
-
-    if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmReset = false
-                        viewModel.resetOnlineGame()
-                    }
-                ) {
-                    Text("确认")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmReset = false }) {
-                    Text("取消")
-                }
-            },
-            title = { Text("确认重置棋局？") },
-            text = { Text("当前棋局和历史记录会被清空。") }
-        )
-    }
-
-    Scaffold(
-        containerColor = Color.Transparent,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("双人•联机") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
-                    }
-                },
-                actions = {
-                    if (session.hasJoinedRoom) {
-                        FilledTonalButton(
-                            onClick = { viewModel.toggleBoardFlipped() },
-                            enabled = session.connected,
-                            modifier = Modifier.padding(end = 6.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text("调转")
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("双人•联机") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, "返回")
                         }
-                        Button(
-                            onClick = { confirmReset = true },
-                            enabled = session.connected,
-                            modifier = Modifier.padding(end = 8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Text("重置")
+                    },
+                    actions = {
+                        if (session.hasJoinedRoom) {
+                            FilledTonalButton(
+                                onClick = { viewModel.toggleBoardFlipped() },
+                                enabled = session.connected,
+                                modifier = Modifier.padding(end = 6.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.SwapVert, contentDescription = null)
+                                Text("调转")
+                            }
+                            Button(
+                                onClick = { confirmReset = true },
+                                enabled = session.connected,
+                                modifier = Modifier.padding(end = 8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Text("重置")
+                            }
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xAA2D1A0A),
-                    titleContentColor = Color(0xFFFFE4A6),
-                    navigationIconContentColor = Color(0xFFFFE4A6),
-                    actionIconContentColor = Color(0xFFFFE4A6)
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xAA2D1A0A),
+                        titleContentColor = Color(0xFFFFE4A6),
+                        navigationIconContentColor = Color(0xFFFFE4A6),
+                        actionIconContentColor = Color(0xFFFFE4A6)
+                    )
                 )
-            )
-        }
-    ) { padding ->
-        if (!session.hasJoinedRoom) {
-            OnlineJoinPanel(
-                roomId = roomId,
-                connecting = session.connecting,
-                message = session.message,
-                onRoomIdChange = {
-                    roomId = it
-                    prefs.edit().putString(OnlineServerConfig.ROOM_ID_KEY, it).apply()
-                },
-                onGenerateRoomId = {
-                    roomId = generateRoomId()
-                    prefs.edit().putString(OnlineServerConfig.ROOM_ID_KEY, roomId).apply()
-                },
-                onJoin = {
-                    prefs.edit()
-                        .putString(OnlineServerConfig.ROOM_ID_KEY, roomId)
-                        .apply()
-                    viewModel.startOnlineGame(roomId, serverUrl)
-                },
-                modifier = Modifier.padding(padding)
-            )
-        } else {
-            val playerSide = session.side ?: Side.RED
-            val connectionState = when {
-                session.reconnecting -> "正在重连"
-                session.playerCount < 2 -> "等待对手"
-                else -> session.message.ifBlank { "已连接" }
             }
+        ) { padding ->
+            if (!session.hasJoinedRoom) {
+                OnlineJoinPanel(
+                    roomId = roomId,
+                    connecting = session.connecting,
+                    message = session.message,
+                    onRoomIdChange = {
+                        roomId = it
+                        prefs.edit().putString(OnlineServerConfig.ROOM_ID_KEY, it).apply()
+                    },
+                    onGenerateRoomId = {
+                        roomId = generateRoomId()
+                        prefs.edit().putString(OnlineServerConfig.ROOM_ID_KEY, roomId).apply()
+                    },
+                    onJoin = {
+                        prefs.edit()
+                            .putString(OnlineServerConfig.ROOM_ID_KEY, roomId)
+                            .apply()
+                        viewModel.startOnlineGame(roomId, serverUrl)
+                    },
+                    modifier = Modifier.padding(padding)
+                )
+            } else {
+                val playerSide = session.side ?: Side.RED
+                val connectionState = when {
+                    session.reconnecting -> "正在重连"
+                    session.playerCount < 2 -> "等待对手"
+                    else -> session.message.ifBlank { "已连接" }
+                }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .battlefieldTexture()
-                    .padding(padding)
-            ) {
-                OnlineGameContent(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                    statusBar = {
-                    OnlineRoomStatusBar(
-                        roomId = session.roomId,
-                        connectionState = connectionState,
+                        .battlefieldTexture()
+                        .padding(padding)
+                ) {
+                    OnlineGameContent(
                         modifier = Modifier
-                            .layoutId("status")
-                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        statusBar = {
+                            OnlineRoomStatusBar(
+                                roomId = session.roomId,
+                                connectionState = connectionState,
+                                modifier = Modifier
+                                    .layoutId("status")
+                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                            )
+                        },
+                        board = {
+                            ChessBoard(
+                                board = state.board,
+                                currentSide = state.currentSide,
+                                status = state.status,
+                                selectedPiece = selectedPiece,
+                                legalMoves = legalMoves,
+                                lastMove = state.lastMove,
+                                isFlipped = state.isFlipped,
+                                onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
+                                modifier = Modifier.layoutId("board")
+                            )
+                        },
+                        controlPanel = {
+                            OnlineControlPanel(
+                                state = state,
+                                statusMessage = statusMessage,
+                                side = playerSide,
+                                showActions = true,
+                                connectionReady = session.connected && !session.movePending,
+                                canUndo = session.connected &&
+                                    !session.movePending &&
+                                    state.status == GameStatus.PLAYING &&
+                                    state.lastMoveSide == playerSide,
+                                onUndo = { viewModel.requestOnlineUndo() },
+                                onDraw = { viewModel.agreeDraw(playerSide) },
+                                onResign = { confirmResign = true },
+                                modifier = Modifier
+                                    .layoutId("panel")
+                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                            )
+                        }
                     )
-                    },
-                    board = {
-                    ChessBoard(
-                        board = state.board,
-                        currentSide = state.currentSide,
-                        status = state.status,
-                        selectedPiece = selectedPiece,
-                        legalMoves = legalMoves,
-                        lastMove = state.lastMove,
-                        isFlipped = state.isFlipped,
-                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
-                        modifier = Modifier.layoutId("board")
-                    )
-                    },
-                    controlPanel = {
-                    OnlineControlPanel(
-                        state = state,
-                        statusMessage = statusMessage,
-                        side = playerSide,
-                        showActions = true,
-                        connectionReady = session.connected && !session.movePending,
-                        canUndo = session.connected &&
-                            !session.movePending &&
-                            state.status == GameStatus.PLAYING &&
-                            state.lastMoveSide == playerSide,
-                        onUndo = { viewModel.requestOnlineUndo() },
-                        onDraw = { viewModel.agreeDraw(playerSide) },
-                        onResign = { confirmResign = true },
-                        modifier = Modifier
-                            .layoutId("panel")
-                            .padding(horizontal = 4.dp, vertical = 4.dp)
-                    )
-                    }
-                )
+                }
             }
+        }
+
+        when {
+            pendingAction != null -> InAppDialog(
+                onDismissRequest = {},
+                dismissOnOutsideClick = false,
+                title = { Text(pendingAction.title) },
+                content = { Text(pendingAction.message) },
+                buttons = {
+                    TextButton(
+                        onClick = { viewModel.respondOnlineRequest(accepted = false) }
+                    ) {
+                        Text("拒绝")
+                    }
+                    TextButton(
+                        onClick = { viewModel.respondOnlineRequest(accepted = true) }
+                    ) {
+                        Text("同意")
+                    }
+                }
+            )
+
+            confirmResign -> InAppDialog(
+                onDismissRequest = { confirmResign = false },
+                title = { Text("确认认输？") },
+                content = { Text("确认后己方判负，对方获胜。") },
+                buttons = {
+                    TextButton(onClick = { confirmResign = false }) {
+                        Text("取消")
+                    }
+                    TextButton(
+                        onClick = {
+                            confirmResign = false
+                            session.side?.let(viewModel::resign)
+                        }
+                    ) {
+                        Text("确认")
+                    }
+                }
+            )
+
+            confirmReset -> InAppDialog(
+                onDismissRequest = { confirmReset = false },
+                title = { Text("确认重置棋局？") },
+                content = { Text("当前棋局和历史记录会被清空。") },
+                buttons = {
+                    TextButton(onClick = { confirmReset = false }) {
+                        Text("取消")
+                    }
+                    TextButton(
+                        onClick = {
+                            confirmReset = false
+                            viewModel.resetOnlineGame()
+                        }
+                    ) {
+                        Text("确认")
+                    }
+                }
+            )
         }
     }
 }

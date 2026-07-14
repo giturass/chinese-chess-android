@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ericlee.chess.network.OnlineServerConfig
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 
 @Composable
@@ -40,50 +41,6 @@ fun HomeScreen(
     }
     var serverUrlError by remember { mutableStateOf(false) }
     var settingsPane by remember { mutableStateOf<HomeSettingsPane?>(null) }
-
-    when (settingsPane) {
-        HomeSettingsPane.MENU -> SettingsMenuDialog(
-            audioMuted = audioMuted,
-            onDismiss = {
-                settingsPane = null
-            },
-            onAudioMutedChange = onAudioMutedChange,
-            onOpenOnlineSettings = { settingsPane = HomeSettingsPane.ONLINE }
-        )
-
-        HomeSettingsPane.ONLINE -> OnlineSettingsDialog(
-            serverUrl = serverUrl,
-            serverUrlError = serverUrlError,
-            onServerUrlChange = {
-                serverUrl = it
-                serverUrlError = false
-            },
-            onRestoreDefault = {
-                serverUrl = OnlineServerConfig.DEFAULT_SERVER_URL
-                serverUrlError = false
-            },
-            onBack = { settingsPane = HomeSettingsPane.MENU },
-            onDismiss = {
-                settingsPane = null
-            },
-            onSave = {
-                val cleaned = serverUrl.trim().trimEnd('/')
-                    .ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
-                if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
-                    serverUrlError = true
-                } else {
-                    serverUrl = cleaned
-                    serverUrlError = false
-                    prefs.edit()
-                        .putString(OnlineServerConfig.SERVER_URL_KEY, cleaned)
-                        .apply()
-                    settingsPane = null
-                }
-            }
-        )
-
-        null -> Unit
-    }
 
     Box(
         modifier = Modifier
@@ -144,40 +101,75 @@ fun HomeScreen(
                 onClick = onStartEndgame
             )
         }
+
+        when (settingsPane) {
+            HomeSettingsPane.MENU -> SettingsMenuOverlay(
+                audioMuted = audioMuted,
+                onDismiss = { settingsPane = null },
+                onAudioMutedChange = onAudioMutedChange,
+                onOpenOnlineSettings = { settingsPane = HomeSettingsPane.ONLINE }
+            )
+
+            HomeSettingsPane.ONLINE -> OnlineSettingsOverlay(
+                serverUrl = serverUrl,
+                serverUrlError = serverUrlError,
+                onServerUrlChange = {
+                    serverUrl = it
+                    serverUrlError = false
+                },
+                onRestoreDefault = {
+                    serverUrl = OnlineServerConfig.DEFAULT_SERVER_URL
+                    serverUrlError = false
+                },
+                onBack = { settingsPane = HomeSettingsPane.MENU },
+                onDismiss = { settingsPane = null },
+                onSave = {
+                    val cleaned = serverUrl.trim().trimEnd('/')
+                        .ifBlank { OnlineServerConfig.DEFAULT_SERVER_URL }
+                    if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
+                        serverUrlError = true
+                    } else {
+                        serverUrl = cleaned
+                        serverUrlError = false
+                        prefs.edit()
+                            .putString(OnlineServerConfig.SERVER_URL_KEY, cleaned)
+                            .apply()
+                        settingsPane = null
+                    }
+                }
+            )
+
+            null -> Unit
+        }
     }
 }
 
 @Composable
-private fun SettingsMenuDialog(
+private fun SettingsMenuOverlay(
     audioMuted: Boolean,
     onDismiss: () -> Unit,
     onAudioMutedChange: (Boolean) -> Unit,
     onOpenOnlineSettings: () -> Unit
 ) {
-    AlertDialog(
+    InAppDialog(
         onDismissRequest = onDismiss,
-        confirmButton = {
+        title = { Text("设置") },
+        content = {
+            SettingsSwitchRow(
+                title = "静音",
+                subtitle = "背景音乐与吃子音效",
+                checked = audioMuted,
+                onCheckedChange = onAudioMutedChange
+            )
+            SettingsMenuButton(
+                title = "联机设置",
+                subtitle = "更改默认联机服务器地址",
+                onClick = onOpenOnlineSettings
+            )
+        },
+        buttons = {
             TextButton(onClick = onDismiss) {
                 Text("关闭")
-            }
-        },
-        title = { Text("设置") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SettingsSwitchRow(
-                    title = "静音",
-                    subtitle = "背景音乐与吃子音效",
-                    checked = audioMuted,
-                    onCheckedChange = onAudioMutedChange
-                )
-                SettingsMenuButton(
-                    title = "联机设置",
-                    subtitle = "更改默认联机服务器地址",
-                    onClick = onOpenOnlineSettings
-                )
             }
         }
     )
@@ -261,7 +253,7 @@ private fun SettingsMenuButton(
 }
 
 @Composable
-private fun OnlineSettingsDialog(
+private fun OnlineSettingsOverlay(
     serverUrl: String,
     serverUrlError: Boolean,
     onServerUrlChange: (String) -> Unit,
@@ -270,42 +262,33 @@ private fun OnlineSettingsDialog(
     onDismiss: () -> Unit,
     onSave: () -> Unit
 ) {
-    AlertDialog(
+    InAppDialog(
         onDismissRequest = onDismiss,
-        confirmButton = {
+        title = { Text("联机设置") },
+        content = {
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = onServerUrlChange,
+                singleLine = true,
+                label = { Text("服务器地址") },
+                isError = serverUrlError,
+                supportingText = {
+                    if (serverUrlError) {
+                        Text("请输入 http:// 或 https:// 开头的地址")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        buttons = {
+            TextButton(onClick = onRestoreDefault) {
+                Text("恢复默认")
+            }
+            TextButton(onClick = onBack) {
+                Text("返回")
+            }
             TextButton(onClick = onSave) {
                 Text("保存")
-            }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onRestoreDefault) {
-                    Text("恢复默认")
-                }
-                TextButton(onClick = onBack) {
-                    Text("返回")
-                }
-            }
-        },
-        title = { Text("联机设置") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = onServerUrlChange,
-                    singleLine = true,
-                    label = { Text("服务器地址") },
-                    isError = serverUrlError,
-                    supportingText = {
-                        if (serverUrlError) {
-                            Text("请输入 http:// 或 https:// 开头的地址")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     )

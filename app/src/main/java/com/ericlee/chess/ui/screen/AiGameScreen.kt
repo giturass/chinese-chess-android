@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +57,7 @@ import com.ericlee.chess.model.Move
 import com.ericlee.chess.model.Piece
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -88,137 +89,138 @@ fun AiGameScreen(
         }
     }
 
-    confirmAction?.let { action ->
-        AlertDialog(
-            onDismissRequest = { confirmAction = null },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        when (action) {
-                            AiConfirmAction.FLIP -> {
-                                val nextHumanSide = state.humanSide.opposite()
-                                difficulty = state.aiDifficulty
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("人机对战") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, "返回")
+                        }
+                    },
+                    actions = {
+                        if (gameStarted) {
+                            FilledTonalButton(
+                                onClick = { confirmAction = AiConfirmAction.FLIP },
+                                enabled = !isAiThinking,
+                                modifier = Modifier.padding(end = 6.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.SwapVert, contentDescription = null)
+                                Text("调转")
+                            }
+                            Button(
+                                onClick = { confirmAction = AiConfirmAction.RESET },
+                                enabled = !isAiThinking,
+                                modifier = Modifier.padding(end = 8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Text("重置")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xAA2D1A0A),
+                        titleContentColor = Color(0xFFFFE4A6),
+                        navigationIconContentColor = Color(0xFFFFE4A6),
+                        actionIconContentColor = Color(0xFFFFE4A6)
+                    )
+                )
+            }
+        ) { padding ->
+            if (!gameStarted) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .battlefieldTexture()
+                        .padding(padding)
+                ) {
+                    val humanSide = selectedHumanSide
+                    if (humanSide == null) {
+                        AiSideSelector(
+                            onSelectSide = { selectedHumanSide = it },
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        DifficultySelector(
+                            humanSide = humanSide,
+                            onBackToSide = { selectedHumanSide = null },
+                            onSelectDifficulty = { selectedDifficulty ->
+                                difficulty = selectedDifficulty
                                 viewModel.startGame(
                                     mode = GameMode.AI,
-                                    difficulty = state.aiDifficulty,
-                                    flipped = nextHumanSide == Side.BLACK,
-                                    humanSide = nextHumanSide
+                                    difficulty = selectedDifficulty,
+                                    flipped = humanSide == Side.BLACK,
+                                    humanSide = humanSide
                                 )
-                            }
-                            AiConfirmAction.RESET -> viewModel.startGame(
-                                mode = GameMode.AI,
-                                difficulty = difficulty,
-                                flipped = state.humanSide == Side.BLACK,
-                                humanSide = state.humanSide
-                            )
-                            AiConfirmAction.RESIGN -> viewModel.resign(state.humanSide)
-                        }
-                        confirmAction = null
+                                gameStarted = true
+                            },
+                            modifier = Modifier.align(Alignment.Center)
+                        )
                     }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .battlefieldTexture()
+                        .padding(padding)
                 ) {
-                    Text("确认")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmAction = null }) {
-                    Text("取消")
-                }
-            },
-            title = { Text(action.title) },
-            text = { Text(action.message) }
-        )
-    }
-
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("人机对战") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
-                    }
-                },
-                actions = {
-                    if (gameStarted) {
-                        FilledTonalButton(
-                            onClick = { confirmAction = AiConfirmAction.FLIP },
-                            enabled = !isAiThinking,
-                            modifier = Modifier.padding(end = 6.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text("调转")
-                        }
-                        Button(
-                            onClick = { confirmAction = AiConfirmAction.RESET },
-                            enabled = !isAiThinking,
-                            modifier = Modifier.padding(end = 8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Text("重置")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xAA2D1A0A),
-                    titleContentColor = Color(0xFFFFE4A6),
-                    navigationIconContentColor = Color(0xFFFFE4A6),
-                    actionIconContentColor = Color(0xFFFFE4A6)
-                )
-            )
-        }
-    ) { padding ->
-        if (!gameStarted) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .battlefieldTexture()
-                    .padding(padding)
-            ) {
-                val humanSide = selectedHumanSide
-                if (humanSide == null) {
-                    AiSideSelector(
-                        onSelectSide = { selectedHumanSide = it },
-                        modifier = Modifier.align(Alignment.Center)
+                    AiGameContent(
+                        state = state,
+                        selectedPiece = selectedPiece,
+                        legalMoves = legalMoves,
+                        statusMessage = statusMessage,
+                        isAiThinking = isAiThinking,
+                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
+                        onUndo = { confirmAction = AiConfirmAction.UNDO },
+                        onDraw = { confirmAction = AiConfirmAction.DRAW },
+                        onResign = { confirmAction = AiConfirmAction.RESIGN }
                     )
-                } else {
-                    DifficultySelector(
-                        humanSide = humanSide,
-                        onBackToSide = { selectedHumanSide = null },
-                        onSelectDifficulty = { selectedDifficulty ->
-                            difficulty = selectedDifficulty
+                }
+            }
+        }
+
+        confirmAction?.let { action ->
+            InAppDialog(
+                onDismissRequest = { confirmAction = null },
+                title = { Text(action.title) },
+                content = { Text(action.message) },
+                buttons = {
+                    TextButton(onClick = { confirmAction = null }) {
+                        Text("取消")
+                    }
+                    TextButton(onClick = {
+                    when (action) {
+                        AiConfirmAction.FLIP -> {
+                            val nextHumanSide = state.humanSide.opposite()
+                            difficulty = state.aiDifficulty
                             viewModel.startGame(
                                 mode = GameMode.AI,
-                                difficulty = selectedDifficulty,
-                                flipped = humanSide == Side.BLACK,
-                                humanSide = humanSide
+                                difficulty = state.aiDifficulty,
+                                flipped = nextHumanSide == Side.BLACK,
+                                humanSide = nextHumanSide
                             )
-                            gameStarted = true
-                        },
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                        }
+                        AiConfirmAction.RESET -> viewModel.startGame(
+                            mode = GameMode.AI,
+                            difficulty = difficulty,
+                            flipped = state.humanSide == Side.BLACK,
+                            humanSide = state.humanSide
+                        )
+                        AiConfirmAction.UNDO -> viewModel.undoMove()
+                        AiConfirmAction.DRAW -> viewModel.agreeDraw(state.humanSide)
+                        AiConfirmAction.RESIGN -> viewModel.resign(state.humanSide)
+                    }
+                    confirmAction = null
+                    }) {
+                        Text("确认")
+                    }
                 }
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .battlefieldTexture()
-                    .padding(padding)
-            ) {
-                AiGameContent(
-                    state = state,
-                    selectedPiece = selectedPiece,
-                    legalMoves = legalMoves,
-                    statusMessage = statusMessage,
-                    isAiThinking = isAiThinking,
-                    onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
-                    onUndo = { viewModel.undoMove() },
-                    onDraw = { viewModel.agreeDraw(state.humanSide) },
-                    onResign = { confirmAction = AiConfirmAction.RESIGN }
-                )
-            }
+            )
         }
     }
 }
@@ -475,6 +477,8 @@ private enum class AiConfirmAction(
 ) {
     FLIP("确认调转先后手？", "会重新开局并互换先后手。AI 先下时将执红先行。"),
     RESET("确认重置棋盘？", "当前棋局和历史记录会被清空。"),
+    UNDO("确认悔棋？", "将撤回你和 AI 的最近一轮走棋。"),
+    DRAW("确认求和？", "确认后本局将立即判为和棋。"),
     RESIGN("确认认输？", "确认后本局将判 AI 获胜。")
 }
 

@@ -1,9 +1,14 @@
 package com.ericlee.chess
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
@@ -13,9 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.view.WindowCompat
@@ -32,6 +35,7 @@ import com.ericlee.chess.audio.GameAudio
 import com.ericlee.chess.data.SavedGameSummary
 import com.ericlee.chess.engine.PikafishEngine
 import com.ericlee.chess.model.GameMode
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.screen.AiGameScreen
 import com.ericlee.chess.ui.screen.AppSplashScreen
 import com.ericlee.chess.ui.screen.EndgameScreen
@@ -44,21 +48,51 @@ import com.ericlee.chess.viewmodel.GameViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
+    private var showEngineReadyDialog by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableImmersiveMode()
         lifecycleScope.launch(Dispatchers.IO) {
-            PikafishEngine.prefetchEvalFile(applicationContext) { !isActive }
+            val ready = PikafishEngine.prefetchEvalFile(applicationContext) { !isActive }
+            if (ready && PikafishEngine.isRestartRequired(applicationContext)) {
+                withContext(Dispatchers.Main) {
+                    showEngineReadyDialog = true
+                }
+            }
         }
         setContent {
             ChineseChessTheme {
                 var showSplash by remember { mutableStateOf(true) }
-                if (showSplash) {
-                    AppSplashScreen(onFinished = { showSplash = false })
-                } else {
-                    ChineseChessApp()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (showSplash) {
+                        AppSplashScreen(onFinished = { showSplash = false })
+                    } else {
+                        ChineseChessApp()
+                    }
+                    if (showEngineReadyDialog && !showSplash) {
+                        InAppDialog(
+                            onDismissRequest = {},
+                            dismissOnOutsideClick = false,
+                            title = { Text("AI引擎加载完毕") },
+                            content = { Text("点击确定重启 App 生效。") },
+                            buttons = {
+                                TextButton(
+                                    onClick = {
+                                        showEngineReadyDialog = false
+                                        PikafishEngine.clearRestartRequired(applicationContext)
+                                        restartApp()
+                                    }
+                                ) {
+                                    Text("确定")
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -78,6 +112,12 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
+
+    private fun restartApp() {
+        startActivity(Intent.makeRestartActivityTask(componentName))
+        finishAffinity()
+        exitProcess(0)
     }
 }
 
@@ -131,80 +171,81 @@ fun ChineseChessApp() {
         heardMoveCount = state.moveHistory.size
     }
 
-    savedGamePrompt?.let { summary ->
-        AlertDialog(
-            onDismissRequest = {},
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val restoredMode = gameViewModel.continueSavedGame()
-                        restoredMode?.route()?.let { route ->
-                            navController.navigate(route) {
-                                launchSingleTop = true
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(navController = navController, startDestination = "home") {
+            composable("home") {
+                HomeScreen(
+                    onStartAiGame = { navController.navigate("ai") },
+                    onStartTwoPlayerGame = { navController.navigate("two_player") },
+                    onStartEndgame = { navController.navigate("endgame") },
+                    audioMuted = audioMuted,
+                    onAudioMutedChange = { audioMuted = it }
+                )
+            }
+            composable("ai") {
+                AiGameScreen(
+                    viewModel = gameViewModel,
+                    onBack = {
+                        gameViewModel.leaveActiveGame()
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable("two_player") {
+                TwoPlayerScreen(
+                    onStartLocalGame = { navController.navigate("local") },
+                    onStartOnlineGame = { navController.navigate("online") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("local") {
+                LocalGameScreen(
+                    viewModel = gameViewModel,
+                    onBack = {
+                        gameViewModel.leaveActiveGame()
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable("online") {
+                OnlineGameScreen(
+                    viewModel = gameViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("endgame") {
+                EndgameScreen(
+                    viewModel = gameViewModel,
+                    onBack = {
+                        gameViewModel.leaveActiveGame()
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        savedGamePrompt?.let { summary ->
+            InAppDialog(
+                onDismissRequest = {},
+                dismissOnOutsideClick = false,
+                title = { Text("发现未完成棋局") },
+                content = { Text(summary.promptText()) },
+                buttons = {
+                    TextButton(onClick = { gameViewModel.discardSavedGame() }) {
+                        Text("舍弃")
+                    }
+                    TextButton(
+                        onClick = {
+                            val restoredMode = gameViewModel.continueSavedGame()
+                            restoredMode?.route()?.let { route ->
+                                navController.navigate(route) {
+                                    launchSingleTop = true
+                                }
                             }
                         }
+                    ) {
+                        Text("继续")
                     }
-                ) {
-                    Text("继续")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { gameViewModel.discardSavedGame() }) {
-                    Text("舍弃")
-                }
-            },
-            title = { Text("发现未完成棋局") },
-            text = { Text(summary.promptText()) }
-        )
-    }
-
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeScreen(
-                onStartAiGame = { navController.navigate("ai") },
-                onStartTwoPlayerGame = { navController.navigate("two_player") },
-                onStartEndgame = { navController.navigate("endgame") },
-                audioMuted = audioMuted,
-                onAudioMutedChange = { audioMuted = it }
-            )
-        }
-        composable("ai") {
-            AiGameScreen(
-                viewModel = gameViewModel,
-                onBack = {
-                    gameViewModel.leaveActiveGame()
-                    navController.popBackStack()
-                }
-            )
-        }
-        composable("two_player") {
-            TwoPlayerScreen(
-                onStartLocalGame = { navController.navigate("local") },
-                onStartOnlineGame = { navController.navigate("online") },
-                onBack = { navController.popBackStack() }
-            )
-        }
-        composable("local") {
-            LocalGameScreen(
-                viewModel = gameViewModel,
-                onBack = {
-                    gameViewModel.leaveActiveGame()
-                    navController.popBackStack()
-                }
-            )
-        }
-        composable("online") {
-            OnlineGameScreen(
-                viewModel = gameViewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
-        composable("endgame") {
-            EndgameScreen(
-                viewModel = gameViewModel,
-                onBack = {
-                    gameViewModel.leaveActiveGame()
-                    navController.popBackStack()
                 }
             )
         }

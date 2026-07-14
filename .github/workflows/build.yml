@@ -58,8 +58,8 @@ jobs:
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
             echo "name=Latest Android APK" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Move Latest Release Tag

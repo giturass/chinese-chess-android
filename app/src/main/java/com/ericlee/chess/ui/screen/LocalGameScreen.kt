@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -71,165 +72,164 @@ fun LocalGameScreen(
     val topSide = if (state.isFlipped) Side.RED else Side.BLACK
     val bottomSide = topSide.opposite()
 
-    pendingAction?.let { action ->
-        val viewer = action.viewerSide()
-        AlertDialog(
-            modifier = Modifier.graphicsLayer(rotationZ = if (viewer == topSide) 180f else 0f),
-            onDismissRequest = { pendingAction = null },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        when (action.type) {
-                            LocalActionType.UNDO -> viewModel.undoMove(action.requester)
-                            LocalActionType.DRAW -> viewModel.agreeDraw(action.requester)
-                            LocalActionType.RESIGN -> viewModel.resign(action.requester)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("双人•本地") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, "返回")
                         }
-                        pendingAction = null
-                    }
-                ) {
-                    Text(action.confirmText())
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingAction = null }) {
-                    Text(action.dismissText())
-                }
-            },
-            title = { Text(action.title()) },
-            text = { Text(action.message()) }
-        )
-    }
-
-    confirmAction?.let { action ->
-        AlertDialog(
-            onDismissRequest = { confirmAction = null },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        when (action) {
-                            BoardConfirmAction.FLIP -> viewModel.toggleBoardFlipped()
-                            BoardConfirmAction.RESET -> viewModel.startGame(
-                                mode = GameMode.LOCAL,
-                                flipped = state.isFlipped
-                            )
-                        }
-                        pendingAction = null
-                        confirmAction = null
-                    }
-                ) {
-                    Text("确认")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmAction = null }) {
-                    Text("取消")
-                }
-            },
-            title = { Text(action.title) },
-            text = { Text(action.message) }
-        )
-    }
-
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("双人•本地") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "返回")
-                    }
-                },
-                actions = {
-                    if (gameStarted) {
-                        FilledTonalButton(
-                            onClick = { confirmAction = BoardConfirmAction.FLIP },
-                            modifier = Modifier.padding(end = 6.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text("调转")
-                        }
-                        Button(
-                            onClick = { confirmAction = BoardConfirmAction.RESET },
-                            modifier = Modifier.padding(end = 8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Text("重置")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xAA2D1A0A),
-                    titleContentColor = Color(0xFFFFE4A6),
-                    navigationIconContentColor = Color(0xFFFFE4A6),
-                    actionIconContentColor = Color(0xFFFFE4A6)
-                )
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .battlefieldTexture()
-                .padding(padding)
-        ) {
-            if (!gameStarted) {
-                LocalSideSelector(
-                    onSelectSide = { side ->
-                        viewModel.startGame(
-                            mode = GameMode.LOCAL,
-                            flipped = side == Side.BLACK
-                        )
-                        gameStarted = true
                     },
-                    modifier = Modifier.align(Alignment.Center)
+                    actions = {
+                        if (gameStarted) {
+                            FilledTonalButton(
+                                onClick = { confirmAction = BoardConfirmAction.FLIP },
+                                modifier = Modifier.padding(end = 6.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.SwapVert, contentDescription = null)
+                                Text("调转")
+                            }
+                            Button(
+                                onClick = { confirmAction = BoardConfirmAction.RESET },
+                                modifier = Modifier.padding(end = 8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Text("重置")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xAA2D1A0A),
+                        titleContentColor = Color(0xFFFFE4A6),
+                        navigationIconContentColor = Color(0xFFFFE4A6),
+                        actionIconContentColor = Color(0xFFFFE4A6)
+                    )
                 )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    PlayerControlPanel(
-                        side = topSide,
-                        state = state,
-                        statusMessage = statusMessage,
-                        onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                        onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                        onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+            }
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .battlefieldTexture()
+                    .padding(padding)
+            ) {
+                if (!gameStarted) {
+                    LocalSideSelector(
+                        onSelectSide = { side ->
+                            viewModel.startGame(
+                                mode = GameMode.LOCAL,
+                                flipped = side == Side.BLACK
+                            )
+                            gameStarted = true
+                        },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    Column(
                         modifier = Modifier
-                            .padding(horizontal = 4.dp, vertical = 4.dp)
-                            .graphicsLayer(rotationZ = 180f)
-                    )
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        PlayerControlPanel(
+                            side = topSide,
+                            state = state,
+                            statusMessage = statusMessage,
+                            onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
+                            onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
+                            onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .graphicsLayer(rotationZ = 180f)
+                        )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    ChessBoard(
-                        board = state.board,
-                        currentSide = state.currentSide,
-                        status = state.status,
-                        selectedPiece = selectedPiece,
-                        legalMoves = legalMoves,
-                        lastMove = state.lastMove,
-                        isFlipped = state.isFlipped,
-                        onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
-                    )
+                        ChessBoard(
+                            board = state.board,
+                            currentSide = state.currentSide,
+                            status = state.status,
+                            selectedPiece = selectedPiece,
+                            legalMoves = legalMoves,
+                            lastMove = state.lastMove,
+                            isFlipped = state.isFlipped,
+                            onPositionClick = { row, col -> viewModel.onPositionClick(row, col) }
+                        )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    PlayerControlPanel(
-                        side = bottomSide,
-                        state = state,
-                        statusMessage = statusMessage,
-                        onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
-                        onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
-                        onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-                    )
+                        PlayerControlPanel(
+                            side = bottomSide,
+                            state = state,
+                            statusMessage = statusMessage,
+                            onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
+                            onDraw = { side -> pendingAction = PendingLocalAction(side, LocalActionType.DRAW) },
+                            onResign = { side -> pendingAction = PendingLocalAction(side, LocalActionType.RESIGN) },
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
+        }
+
+        pendingAction?.let { action ->
+            val viewer = action.viewerSide()
+            InAppDialog(
+                modifier = Modifier.graphicsLayer(rotationZ = if (viewer == topSide) 180f else 0f),
+                onDismissRequest = { pendingAction = null },
+                title = { Text(action.title()) },
+                content = { Text(action.message()) },
+                buttons = {
+                    TextButton(onClick = { pendingAction = null }) {
+                        Text(action.dismissText())
+                    }
+                    TextButton(
+                        onClick = {
+                            when (action.type) {
+                                LocalActionType.UNDO -> viewModel.undoMove(action.requester)
+                                LocalActionType.DRAW -> viewModel.agreeDraw(action.requester)
+                                LocalActionType.RESIGN -> viewModel.resign(action.requester)
+                            }
+                            pendingAction = null
+                        }
+                    ) {
+                        Text(action.confirmText())
+                    }
+                }
+            )
+        }
+
+        confirmAction?.let { action ->
+            InAppDialog(
+                onDismissRequest = { confirmAction = null },
+                title = { Text(action.title) },
+                content = { Text(action.message) },
+                buttons = {
+                    TextButton(onClick = { confirmAction = null }) {
+                        Text("取消")
+                    }
+                    TextButton(
+                        onClick = {
+                            when (action) {
+                                BoardConfirmAction.FLIP -> viewModel.toggleBoardFlipped()
+                                BoardConfirmAction.RESET -> viewModel.startGame(
+                                    mode = GameMode.LOCAL,
+                                    flipped = state.isFlipped
+                                )
+                            }
+                            pendingAction = null
+                            confirmAction = null
+                        }
+                    ) {
+                        Text("确认")
+                    }
+                }
+            )
         }
     }
 }

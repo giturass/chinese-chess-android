@@ -260,6 +260,22 @@ class PikafishEngine(
             context: Context,
             isCancelled: () -> Boolean
         ): InstalledPikafish = synchronized(installLock) {
+            val installed = prepareLocked(context, isCancelled)
+            check(!isRestartRequired(context)) {
+                "AI 引擎加载完毕，请重启 App 后使用"
+            }
+            installed
+        }
+
+        fun prepare(context: Context, isCancelled: () -> Boolean): InstalledPikafish =
+            synchronized(installLock) {
+                prepareLocked(context, isCancelled)
+            }
+
+        private fun prepareLocked(
+            context: Context,
+            isCancelled: () -> Boolean
+        ): InstalledPikafish {
             require(Build.SUPPORTED_64_BIT_ABIS.contains("arm64-v8a")) {
                 "当前设备不支持 ARM64 Pikafish"
             }
@@ -275,18 +291,69 @@ class PikafishEngine(
             val validationFile = File(targetDir, "$EVAL_FILE.sha256")
             val alreadyValidated = evalFile.length() == EVAL_FILE_SIZE &&
                 validationFile.readTextOrEmpty() == EVAL_FILE_SHA256
+            var installedNow = false
             if (!alreadyValidated) {
                 if (evalFile.length() == EVAL_FILE_SIZE && evalFile.sha256() == EVAL_FILE_SHA256) {
                     validationFile.writeText(EVAL_FILE_SHA256)
+                    installedNow = true
+                } else if (migrateLegacyEvalFile(context, evalFile, validationFile, isCancelled)) {
+                    installedNow = true
                 } else {
                     downloadEvalFile(evalFile, validationFile, isCancelled)
+                    installedNow = true
                 }
             }
-            InstalledPikafish(targetDir, binary, evalFile)
+            if (installedNow) {
+                setRestartRequired(context, true)
+            }
+            return InstalledPikafish(targetDir, binary, evalFile)
         }
 
-        private fun evalDirectory(context: Context): File =
-            File(context.noBackupFilesDir, "pikafish/$ENGINE_VERSION")
+        private fun evalDirectory(context: Context): File {
+            val externalFilesDir = context.getExternalFilesDir(null)
+                ?: throw IllegalStateException("外部存储暂不可用")
+            val packageDirectory = externalFilesDir.parentFile
+                ?: throw IllegalStateException("无法定位应用外部存储目录")
+            return File(packageDirectory, "engine/pikafish")
+        }
+
+        private fun migrateLegacyEvalFile(
+            context: Context,
+            target: File,
+            validationFile: File,
+            isCancelled: () -> Boolean
+        ): Boolean {
+            val legacyFile = File(
+                context.noBackupFilesDir,
+                "pikafish/$ENGINE_VERSION/$EVAL_FILE"
+            )
+            if (legacyFile.length() != EVAL_FILE_SIZE || legacyFile.sha256() != EVAL_FILE_SHA256) {
+                return false
+            }
+            val tmp = File(target.parentFile, "${target.name}.tmp")
+            tmp.delete()
+            try {
+                legacyFile.inputStream().buffered().use { input ->
+                    tmp.outputStream().buffered().use { output ->
+                        copyStream(input, output, isCancelled)
+                    }
+                }
+                if (tmp.length() != EVAL_FILE_SIZE || tmp.sha256() != EVAL_FILE_SHA256) {
+                    throw IOException("迁移后的 NNUE 文件校验失败")
+                }
+                target.delete()
+                require(tmp.renameTo(target)) { "无法迁移 Pikafish NNUE" }
+                validationFile.writeText(EVAL_FILE_SHA256)
+                legacyFile.delete()
+                legacyFile.parentFile?.delete()
+                legacyFile.parentFile?.parentFile?.delete()
+                return true
+            } catch (error: Throwable) {
+                tmp.delete()
+                if (isCancelled()) throw IOException("NNUE 迁移已取消", error)
+                return false
+            }
+        }
 
         private fun downloadEvalFile(
             target: File,
@@ -316,13 +383,7 @@ class PikafishEngine(
                     }
                     connection.inputStream.buffered().use { input ->
                         tmp.outputStream().buffered().use { output ->
-                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            while (true) {
-                                if (isCancelled()) throw IOException("NNUE 下载已取消")
-                                val count = input.read(buffer)
-                                if (count < 0) break
-                                output.write(buffer, 0, count)
-                            }
+                            copyStream(input, output, isCancelled)
                         }
                     }
                 } finally {
@@ -360,6 +421,31 @@ class PikafishEngine(
 
         private fun File.readTextOrEmpty(): String =
             runCatching { readText().trim() }.getOrDefault("")
+
+        private fun copyStream(
+            input: java.io.InputStream,
+            output: java.io.OutputStream,
+            isCancelled: () -> Boolean
+        ) {
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                if (isCancelled()) throw IOException("NNUE 操作已取消")
+                val count = input.read(buffer)
+                if (count < 0) break
+                output.write(buffer, 0, count)
+            }
+        }
+
+        fun isRestartRequired(context: Context): Boolean =
+            context.getSharedPreferences(ENGINE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(RESTART_REQUIRED_KEY, false)
+
+        fun setRestartRequired(context: Context, required: Boolean) {
+            context.getSharedPreferences(ENGINE_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(RESTART_REQUIRED_KEY, required)
+                .commit()
+        }
     }
 
     private object PikafishNotation {
@@ -422,10 +508,19 @@ class PikafishEngine(
     }
 
     companion object {
-        fun prefetchEvalFile(context: Context, isCancelled: () -> Boolean = { false }) {
-            runCatching {
-                PikafishInstaller.install(context.applicationContext, isCancelled)
-            }
+        fun prefetchEvalFile(
+            context: Context,
+            isCancelled: () -> Boolean = { false }
+        ): Boolean = runCatching {
+            PikafishInstaller.prepare(context.applicationContext, isCancelled)
+            true
+        }.getOrDefault(false)
+
+        fun isRestartRequired(context: Context): Boolean =
+            PikafishInstaller.isRestartRequired(context.applicationContext)
+
+        fun clearRestartRequired(context: Context) {
+            PikafishInstaller.setRestartRequired(context.applicationContext, false)
         }
 
         private const val ENGINE_VERSION = "2026-01-02"
@@ -438,6 +533,8 @@ class PikafishEngine(
             "c4026370d7516d9b0f668447f9ca1931241538bdc689cde6fec6a991ac4d5f77"
         private const val DOWNLOAD_CONNECT_TIMEOUT_MS = 15_000
         private const val DOWNLOAD_READ_TIMEOUT_MS = 120_000
+        private const val ENGINE_PREFS_NAME = "pikafish_engine"
+        private const val RESTART_REQUIRED_KEY = "restart_required"
         private const val INIT_TIMEOUT_MS = 12_000L
         private const val SEARCH_TIMEOUT_MS = 20_000L
     }

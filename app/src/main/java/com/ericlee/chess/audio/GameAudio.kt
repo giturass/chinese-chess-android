@@ -18,7 +18,9 @@ class GameAudio(context: Context, initialMuted: Boolean = false) {
         )
         .build()
     private val clickSoundId = soundPool.load(appContext, R.raw.click, 1)
+    private val backgroundTracks = intArrayOf(R.raw.bgm, R.raw.bg)
     private var backgroundPlayer: MediaPlayer? = null
+    private var backgroundTrackIndex = 0
     private var muted = initialMuted
     private var released = false
 
@@ -34,9 +36,21 @@ class GameAudio(context: Context, initialMuted: Boolean = false) {
 
     fun startBackground() {
         if (released || muted || backgroundPlayer != null) return
-        backgroundPlayer = MediaPlayer.create(appContext, R.raw.bgm)?.apply {
-            isLooping = true
+        val player = MediaPlayer.create(appContext, backgroundTracks[backgroundTrackIndex]) ?: return
+        backgroundPlayer = player.apply {
+            isLooping = false
             setVolume(0.24f, 0.24f)
+            setOnCompletionListener { completedPlayer ->
+                completedPlayer.setOnCompletionListener(null)
+                completedPlayer.release()
+                if (backgroundPlayer === completedPlayer) {
+                    backgroundPlayer = null
+                }
+                backgroundTrackIndex = (backgroundTrackIndex + 1) % backgroundTracks.size
+                if (!released && !muted) {
+                    startBackground()
+                }
+            }
             start()
         }
     }
@@ -63,6 +77,7 @@ class GameAudio(context: Context, initialMuted: Boolean = false) {
 
     fun release() {
         released = true
+        backgroundPlayer?.setOnCompletionListener(null)
         backgroundPlayer?.release()
         backgroundPlayer = null
         soundPool.release()

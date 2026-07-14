@@ -27,6 +27,7 @@ import com.ericlee.chess.model.GameMode
 import com.ericlee.chess.model.GameStatus
 import com.ericlee.chess.model.Side
 import com.ericlee.chess.ui.board.ChessBoard
+import com.ericlee.chess.ui.component.InAppDialog
 import com.ericlee.chess.ui.theme.battlefieldTexture
 import com.ericlee.chess.viewmodel.GameViewModel
 
@@ -86,112 +87,114 @@ fun EndgameScreen(
     }
 
     val puzzle = selectedPuzzle
-    if (puzzle != null) {
-        GameContent(
-            puzzle = puzzle,
-            state = state,
-            selectedPiece = selectedPiece,
-            legalMoves = legalMoves,
-            statusMessage = statusMessage,
-            onBack = leavePuzzle,
-            onReset = { viewModel.loadEndgame(puzzle) },
-            onUndo = { viewModel.undoMove() },
-            onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
-            onShowHint = { showHint = true },
-            onSolved = { solvedId ->
-                if (solvedId !in completedIds) {
-                    val updated = completedIds + solvedId
-                    completedIds = updated
-                    progressPrefs.saveCompletedPuzzleIds(updated)
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (puzzle != null) {
+            GameContent(
+                puzzle = puzzle,
+                state = state,
+                selectedPiece = selectedPiece,
+                legalMoves = legalMoves,
+                statusMessage = statusMessage,
+                onBack = leavePuzzle,
+                onReset = { viewModel.loadEndgame(puzzle) },
+                onUndo = { viewModel.undoMove() },
+                onPositionClick = { row, col -> viewModel.onPositionClick(row, col) },
+                onShowHint = { showHint = true },
+                onSolved = { solvedId ->
+                    if (solvedId !in completedIds) {
+                        val updated = completedIds + solvedId
+                        completedIds = updated
+                        progressPrefs.saveCompletedPuzzleIds(updated)
+                    }
+                }
+            )
+        } else {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        title = { Text("残局挑战") },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.Default.ArrowBack, "返回")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color(0xAA2D1A0A),
+                            titleContentColor = Color(0xFFFFE4A6),
+                            navigationIconContentColor = Color(0xFFFFE4A6)
+                        )
+                    )
+                }
+            ) { padding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .battlefieldTexture()
+                        .padding(padding)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item {
+                            EndgameProgressHeader(
+                                completedCount = completedIds.size,
+                                totalCount = puzzles.size
+                            )
+                        }
+                        item {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 4.dp)
+                            ) {
+                                items(categories) { category ->
+                                    FilterChip(
+                                        selected = selectedCategory == category,
+                                        onClick = { selectedCategory = category },
+                                        label = { Text(category) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFFFFD36A),
+                                            selectedLabelColor = Color(0xFF24150D),
+                                            containerColor = Color(0xBB1C1510),
+                                            labelColor = Color(0xFFFFE4A6)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        items(visiblePuzzles) { puzzle ->
+                            PuzzleCard(
+                                puzzle = puzzle,
+                                completed = puzzle.id in completedIds,
+                                onClick = {
+                                    showHint = false
+                                    selectedPuzzle = puzzle
+                                    viewModel.loadEndgame(puzzle)
+                                }
+                            )
+                        }
+                    }
                 }
             }
-        )
+        }
 
-        if (showHint) {
-            AlertDialog(
+        if (puzzle != null && showHint) {
+            InAppDialog(
                 onDismissRequest = { showHint = false },
-                confirmButton = {
+                title = { Text("提示") },
+                content = { Text(puzzle.hint) },
+                buttons = {
                     TextButton(
                         onClick = { showHint = false },
                         colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2F251C))
                     ) {
                         Text("知道了")
                     }
-                },
-                title = { Text("提示") },
-                text = { Text(puzzle.hint) }
-            )
-        }
-    } else {
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    title = { Text("残局挑战") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, "返回")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xAA2D1A0A),
-                        titleContentColor = Color(0xFFFFE4A6),
-                        navigationIconContentColor = Color(0xFFFFE4A6)
-                    )
-                )
-            }
-        ) { padding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .battlefieldTexture()
-                    .padding(padding)
-            ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    item {
-                        EndgameProgressHeader(
-                            completedCount = completedIds.size,
-                            totalCount = puzzles.size
-                        )
-                    }
-                    item {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp)
-                        ) {
-                            items(categories) { category ->
-                                FilterChip(
-                                    selected = selectedCategory == category,
-                                    onClick = { selectedCategory = category },
-                                    label = { Text(category) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color(0xFFFFD36A),
-                                        selectedLabelColor = Color(0xFF24150D),
-                                        containerColor = Color(0xBB1C1510),
-                                        labelColor = Color(0xFFFFE4A6)
-                                    )
-                                )
-                            }
-                        }
-                    }
-                    items(visiblePuzzles) { puzzle ->
-                        PuzzleCard(
-                            puzzle = puzzle,
-                            completed = puzzle.id in completedIds,
-                            onClick = {
-                                showHint = false
-                                selectedPuzzle = puzzle
-                                viewModel.loadEndgame(puzzle)
-                            }
-                        )
-                    }
                 }
-            }
+            )
         }
     }
 }
