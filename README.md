@@ -25,13 +25,9 @@
 ./gradlew assembleDebug
 ```
 
-## GitHub Actions
+## 第三方组件支持
 
-每次推送到 main 分支会自动构建并上传 APK artifact
-
-## 第三方组件
-
-APK 内置 `official-pikafish/Pikafish` 2026-01-02 Android ARM64 二进制文件和 NNUE 文件。
+APK 内置 https://github.com/official-pikafish/Pikafish 2026-01-02 Android ARM64 二进制文件和 NNUE 文件。
 
 ## 许可证
 
