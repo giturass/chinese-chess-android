@@ -4,7 +4,8 @@
 
 ## 注意
 
-首次打开应用会后台加载pikafish的nnue文件 需要打开网络 加载完毕会提示重启应用生效。
+1.首次打开应用会后台加载pikafish的nnue文件 需要打开网络 加载完毕会提示重启应用生效。
+2.如果觉得内置联机服务器不够稳定，可以 https://github.com/giturass/ChineseChessOnlineServer 自部署，然后应用设置替换默认联机服务器。
 
 ## 功能特性
 
