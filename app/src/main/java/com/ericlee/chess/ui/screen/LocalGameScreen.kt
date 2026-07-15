@@ -53,7 +53,7 @@ fun LocalGameScreen(
 
     var gameStarted by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<PendingLocalAction?>(null) }
-    var confirmAction by remember { mutableStateOf<BoardConfirmAction?>(null) }
+    var confirmAction by remember { mutableStateOf<PendingBoardConfirm?>(null) }
 
     val state by viewModel.gameState.collectAsState()
     val selectedPiece by viewModel.selectedPiece.collectAsState()
@@ -120,7 +120,9 @@ fun LocalGameScreen(
                             statusMessage = statusMessage,
                             onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
                             onHint = {},
-                            onNewGame = { confirmAction = BoardConfirmAction.NEW_GAME },
+                            onNewGame = {
+                                confirmAction = PendingBoardConfirm(BoardConfirmAction.NEW_GAME, topSide)
+                            },
                             modifier = Modifier
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
                                 .graphicsLayer(rotationZ = 180f)
@@ -147,7 +149,9 @@ fun LocalGameScreen(
                             statusMessage = statusMessage,
                             onUndo = { side -> pendingAction = PendingLocalAction(side, LocalActionType.UNDO) },
                             onHint = {},
-                            onNewGame = { confirmAction = BoardConfirmAction.NEW_GAME },
+                            onNewGame = {
+                                confirmAction = PendingBoardConfirm(BoardConfirmAction.NEW_GAME, bottomSide)
+                            },
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
                         )
                     }
@@ -180,8 +184,12 @@ fun LocalGameScreen(
             )
         }
 
-        confirmAction?.let { action ->
+        confirmAction?.let { pending ->
+            val action = pending.action
             InAppDialog(
+                modifier = Modifier.graphicsLayer(
+                    rotationZ = if (pending.viewer == topSide) 180f else 0f
+                ),
                 onDismissRequest = { confirmAction = null },
                 title = { Text(action.title) },
                 content = { Text(action.message) },
@@ -263,6 +271,11 @@ private enum class BoardConfirmAction(
 ) {
     NEW_GAME("确认开始新局？", "当前棋局和历史记录会被清空。")
 }
+
+private data class PendingBoardConfirm(
+    val action: BoardConfirmAction,
+    val viewer: Side
+)
 
 private data class PendingLocalAction(
     val requester: Side,
